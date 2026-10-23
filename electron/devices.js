@@ -1,10 +1,11 @@
 import { listStreamDecks, openStreamDeck } from '@elgato-stream-deck/node';
 import sharp from 'sharp';
 import { visualSignature } from '../shared/visuals.js';
+import { playStartupWave } from './startup-wave.js';
 export class Devices {
   constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false }) {
     Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive });
-    this.info = { connected: false, name: 'Virtuelles Stream Deck', rows: 3, columns: 5, count: 15, error: '' }; this.cache = new Map(); this.sent = new Map(); this.images = new Map(); this.renderQueue = Promise.resolve(); this.renderRevision = 0;
+    this.info = { connected: false, name: 'Virtuelles Stream Deck', rows: 3, columns: 5, count: 15, error: '' }; this.cache = new Map(); this.sent = new Map(); this.images = new Map(); this.renderQueue = Promise.resolve(); this.renderRevision = 0; this.startupPlayed = false;
   }
   start() { this.scan(); this.timer = setInterval(() => this.scan(), 3000); }
   async scan() {
@@ -19,16 +20,44 @@ export class Devices {
         const controls = this.deck.modelInfo.controls.filter(c => c.type === 'button');
         this.controls = controls;
         this.info = { connected: true, name: this.deck.modelInfo.name, serial: await this.deck.getSerialNumber(), count: controls.length, rows: Math.max(...controls.map(c => c.row)) + 1, columns: Math.max(...controls.map(c => c.column)) + 1, error: '' };
-        this.deck.on('down', c => { if (c.type === 'button') this.onDown(c.index); });
+        this.deck.on('down', c => { if (c.type === 'button') { this.skipStartupAnimation(); this.onDown(c.index); } });
         this.deck.on('up', c => { if (c.type === 'button') this.onUp(c.index); });
         this.deck.on('error', error => { this.info.error = error.message; this.disconnect().catch(() => {}); });
-        this.sent.clear(); this.onStatus(); await this.render();
+        this.sent.clear(); await this.startupAnimation();
       } else if (!devices.length && this.info.error) { this.info.error = ''; this.onStatus(); }
     } catch (error) { const message = `USB-Zugriff fehlgeschlagen: ${error.message}`; if (this.info.error !== message) { this.info.error = message; this.onStatus(); } }
     finally { this.scanning = false; }
   }
   async select(devicePath) { this.preferred = devicePath; await this.disconnect(); await this.scan(); }
-  async disconnect() { const deck = this.deck; this.deck = null; this.path = null; this.sent.clear(); if (deck) { deck.removeAllListeners(); await deck.close().catch(() => {}); } this.info.connected = false; this.onStatus(); }
+  async disconnect() { this.skipStartupAnimation(); const deck = this.deck; this.deck = null; this.path = null; this.sent.clear(); if (deck) { deck.removeAllListeners(); await deck.close().catch(() => {}); } this.info.connected = false; this.onStatus(); }
+  skipStartupAnimation() { this.startupController?.abort(); }
+  startupAnimation() {
+    if (this.startupPlayed || !this.controls.some(c => c.feedbackType === 'lcd')) { this.onStatus(); return this.render(); }
+    this.startupPlayed = true;
+    const deck = this.deck;
+    const controller = new AbortController();
+    this.startupController = controller;
+    this.info.animating = true;
+    ++this.renderRevision;
+    // All regular image updates wait behind this job. They still update the
+    // image bank immediately so the latest profile is ready when it finishes.
+    this.renderQueue = this.renderQueue.catch(() => {}).then(async () => {
+      try {
+        if (this.deck !== deck || controller.signal.aborted) return;
+        await deck.setBrightness(this.getBrightness());
+        await playStartupWave(deck, this.controls, { signal: controller.signal });
+      } catch (error) {
+        if (!controller.signal.aborted && this.deck === deck) this.info.error = `Startanimation: ${error.message}`;
+      } finally {
+        this.sent.clear();
+        this.startupController = null;
+        this.info.animating = false;
+        this.onStatus();
+      }
+    });
+    this.onStatus();
+    return this.renderQueue.then(() => this.render());
+  }
   setImages(images) { this.images = new Map(images.map(({ signature, image }) => [signature, image])); return this.render(); }
   render() {
     const revision = ++this.renderRevision;
@@ -61,5 +90,5 @@ export class Devices {
       }
     }).catch(error => { this.info.error = error.message; this.onStatus(); }); return this.renderQueue;
   }
-  async close() { this.stopping = true; clearInterval(this.timer); await this.renderQueue.catch(() => {}); if (this.deck) { await this.deck.resetToLogo().catch(() => {}); await this.disconnect(); } }
+  async close() { this.stopping = true; this.skipStartupAnimation(); clearInterval(this.timer); await this.renderQueue.catch(() => {}); if (this.deck) { await this.deck.resetToLogo().catch(() => {}); await this.disconnect(); } }
 }

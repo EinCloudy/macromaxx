@@ -33,6 +33,8 @@ Linux: AppImage. Windows: NSIS. macOS: dmg. Für die jeweiligen Plattformen auf 
 
 Tasten können per Drag-and-drop getauscht werden. Rückgängig/Wiederholen über die Toolbar oder Strg+Z / Strg+Umschalt+Z. Profilverwaltung über das Drei-Punkte-Menü. Änderungen werden automatisch gespeichert; USB-Bilder und Helligkeit live übertragen.
 
+Beim App-Start läuft auf dem ersten verbundenen Deck eine kurze violette Lichtwelle von der Mitte nach außen. Das Raster wird automatisch berücksichtigt: Beim 15-Tasten-Deck beginnt sie auf der mittleren Taste, beim XL symmetrisch um die vier zentralen Tasten. Anschließend erscheint die aktuelle Belegung. Ein Tastendruck überspringt die Animation; Ordnerwechsel und erneutes Verbinden spielen sie nicht erneut ab.
+
 ## Aktionen
 
 - **Hotkey:** Kombination aufnehmen oder `CTRL+SHIFT+M` eingeben. Auch Funktionstasten, Pfeiltasten, `META`, `SPACE`, `ENTER`, `PLUS`, `MINUS` etc. Drücken/Loslassen separat möglich (Linux/Windows). Gehaltene Tasten werden beim normalen Beenden und bei „Alle stoppen“ freigegeben.
