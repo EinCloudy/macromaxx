@@ -1,3 +1,4 @@
+import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from './key-text.js';
 export const uid = () => globalThis.crypto.randomUUID();
 export const catalog = [
   { type: 'hotkey', name: 'Hotkey', icon: 'Keyboard', group: 'System', description: 'Eine Tastenkombination auslösen', defaults: { keys: 'CTRL+SHIFT+M' } },
@@ -27,7 +28,7 @@ export function initialState() {
   entries.forEach(([type, label, icon, color], i) => { profile.keys[i] = { ...makeKey(type, label), icon, color }; });
   profile.keys[1].actions[0].url = 'https://www.google.com';
   profile.keys[2].actions[0].path = '~';
-  return { version: 1, profiles: [profile], activeProfileId: profile.id, settings: { brightness: 65, theme: 'dark', closeToTray: true, autostart: false, obsUrl: 'ws://127.0.0.1:4455', obsPassword: '', folderAnimations: true, iconRevealAnimation: true } };
+  return { version: 1, profiles: [profile], activeProfileId: profile.id, settings: { brightness: 65, theme: 'dark', closeToTray: true, autostart: false, obsUrl: 'ws://127.0.0.1:4455', obsPassword: '', folderAnimations: true, iconRevealAnimation: true, defaultFontSize: DEFAULT_FONT_SIZE } };
 }
 export function validateState(value) {
   if (!value || value.version !== 1 || !Array.isArray(value.profiles) || !value.profiles.length || value.profiles.length > 100) throw new Error('Ungültige Profildatei (Version 1 erwartet).');
@@ -37,6 +38,7 @@ export function validateState(value) {
     for (const key of items) if (key) {
       if (++count > 10000 || typeof key.id !== 'string' || keyIds.has(key.id) || typeof key.label !== 'string' || key.label.length > 80 || typeof key.icon !== 'string' || typeof key.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(key.color) || !/^#[0-9a-f]{6}$/i.test(key.background) || typeof key.image !== 'string') throw new Error('Ungültige Taste.');
       keyIds.add(key.id);
+      if (key.fontSize !== undefined && (!Number.isInteger(key.fontSize) || key.fontSize < MIN_FONT_SIZE || key.fontSize > MAX_FONT_SIZE)) throw new Error('Ungültige Schriftgröße.');
       if (key.backPosition !== undefined && (!Number.isInteger(key.backPosition) || key.backPosition < 0 || key.backPosition > 127)) throw new Error('Ungültige Position der Zurück-Taste.');
       if (key.image && !/^data:image\/(png|jpeg|webp);base64,/.test(key.image)) throw new Error('Ungültiges Tastenbild.');
       for (const actions of [key.actions, key.longActions]) {
@@ -53,6 +55,7 @@ export function validateState(value) {
   for (const name of ['folderAnimations', 'iconRevealAnimation']) {
     if (value.settings[name] !== undefined && typeof value.settings[name] !== 'boolean') throw new Error('Ungültige Animationseinstellung.');
   }
+  if (value.settings.defaultFontSize !== undefined && (!Number.isInteger(value.settings.defaultFontSize) || value.settings.defaultFontSize < MIN_FONT_SIZE || value.settings.defaultFontSize > MAX_FONT_SIZE)) throw new Error('Ungültige globale Schriftgröße.');
   return value;
 }
 export function visibleKeys(state, path = []) {

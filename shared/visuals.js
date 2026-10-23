@@ -1,3 +1,4 @@
+import { keyFontSize, resolvedKeyFont } from './key-text.js';
 export const backKey = { id: 'back', label: 'Zurück', icon: 'ArrowLeft', color: '#ad92ff', background: '#242231' };
 
 export function isKeyActive(key, obs) {
@@ -10,12 +11,13 @@ export function isKeyActive(key, obs) {
 
 // Only appearance matters: the same artwork can be reused on any page/slot.
 export function visualSignature(key, active = false) {
-  return JSON.stringify(key ? [key.label, key.icon, key.color, key.background, key.image || '', !!active] : null);
+  return JSON.stringify(key ? [key.label, key.icon, key.color, key.background, key.image || '', keyFontSize(key), !!active] : null);
 }
 
 export function collectVisuals(state, obs) {
   const entries = new Map();
   function add(key) {
+    key = resolvedKeyFont(key, state.settings);
     const active = isKeyActive(key, obs);
     const signature = visualSignature(key, active);
     if (!entries.has(signature)) entries.set(signature, { key, active, signature });

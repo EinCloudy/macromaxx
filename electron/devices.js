@@ -4,6 +4,7 @@ import { visualSignature } from '../shared/visuals.js';
 import { animationEnabled } from '../shared/animation-settings.js';
 import { playStartupWave } from './startup-wave.js';
 import { playIconTransition } from './icon-transitions.js';
+import { resolvedKeyFont } from '../shared/key-text.js';
 
 export class Devices {
   constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}) }) {
@@ -139,7 +140,8 @@ export class Devices {
       if (!deck) return;
       const current = () => this.deck === deck && revision === this.renderRevision && !this.stopping;
       await deck.setBrightness(this.getBrightness());
-      const keys = this.getKeys();
+      const settings = this.getSettings();
+      const keys = this.getKeys().map(key => resolvedKeyFont(key, settings));
       const targets = [];
       let missing = false;
       for (const control of this.controls) {

@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import { Devices } from '../electron/devices.js';
 import { initialState, makeKey } from '../shared/model.js';
 import { backKey, collectVisuals, visualSignature, isKeyActive } from '../shared/visuals.js';
+import { resolvedKeyFont } from '../shared/key-text.js';
 
 async function artwork(key, red) {
   const png = await sharp({ create: { width: 1, height: 1, channels: 3, background: { r: red, g: 0, b: 0 } } }).png().toBuffer();
@@ -64,4 +65,24 @@ test('Image bank includes nested folders, blank keys, back button and OBS appear
   assert.equal(visualSignature(copy), visualSignature(nested), 'slot/action IDs do not invalidate artwork');
   assert.equal(isKeyActive(nested, obs), true);
   assert.notEqual(visualSignature(nested, true), visualSignature(nested, false));
+});
+
+test('Hardware picks globally sized artwork for inherited keys and preserves individual sizes', async () => {
+  const inherited = makeKey('hotkey'), custom = makeKey('url'); custom.fontSize = 18;
+  const settings = { defaultFontSize: 24 };
+  const writes = [];
+  const device = new Devices({ getKeys: () => [inherited, custom], getSettings: () => settings, getBrightness: () => 65, onStatus: () => {} });
+  device.deck = { setBrightness: async () => {}, fillKeyBuffer: async (index, buffer) => writes.push([index, buffer[0]]) };
+  device.controls = [0, 1].map(index => ({ index, feedbackType: 'lcd', pixelSize: { width: 1, height: 1 } }));
+  const assets = () => Promise.all([inherited, custom].map(key => {
+    const resolved = resolvedKeyFont(key, settings);
+    return artwork(resolved, resolved.fontSize);
+  }));
+  await device.setImages(await assets());
+  assert.deepEqual(writes, [[0, 24], [1, 18]]);
+  settings.defaultFontSize = 30;
+  await device.setImages(await assets());
+  assert.deepEqual(writes, [[0, 24], [1, 18], [0, 30]]);
+  assert.equal(inherited.fontSize, undefined);
+  assert.equal(custom.fontSize, 18);
 });

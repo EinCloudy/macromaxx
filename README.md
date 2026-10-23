@@ -25,7 +25,7 @@ Linux: AppImage. Windows: NSIS. macOS: dmg. Für die jeweiligen Plattformen auf 
 ## Bedienung
 
 1. Aktion aus der rechten Bibliothek auf eine Taste ziehen oder freie Taste anklicken und eine Aktion auswählen.
-2. **Eigenschaften** öffnen: Beschriftung, Icon, Farbe, eigenes Bild und Aktionsparameter einstellen.
+2. **Eigenschaften** öffnen: Beschriftung, Schriftgröße, Icon, Farbe, eigenes Bild und Aktionsparameter einstellen. Die Schriftgröße ist pro Taste von 10 bis 32 einstellbar – per Regler oder Zahlenfeld, mit direkter Vorschau und Übertragung auf das Deck. Unter **Einstellungen → Schrift & Beschriftung** lässt sich die globale Standardgröße ändern (Werkseinstellung 16). Neue Tasten sowie vorhandene Tasten ohne eigene Größenangabe übernehmen diesen Wert automatisch, auch in Unterordnern und für die Zurück-Taste. Eigene Größen bleiben erhalten; „Standard“ in den Tasteneigenschaften entfernt die individuelle Größenangabe und aktiviert wieder die Vererbung. Lange Beschriftungen werden auf bis zu zwei Zeilen umbrochen und bei Bedarf mit „…“ gekürzt. Globale und individuelle Einstellungen bleiben beim Duplizieren bzw. Import/Export erhalten.
 3. **Testen** oder die Hardwaretaste drücken. Ergebnisse stehen unter **Aktivitäten**.
 4. Aktionen in den Eigenschaften zu einer Kette ergänzen und umsortieren. Erneutes Auslösen stoppt eine laufende Kette. Mit Wartezeiten lassen sich Programme und Workflows koordinieren.
 5. **Langer Druck** kann separat belegt werden (ab 600 ms). Nicht belegte lange Drücke verwenden die kurze Belegung. Aktionen werden beim Loslassen ausgelöst.
