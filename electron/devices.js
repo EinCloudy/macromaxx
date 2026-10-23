@@ -1,36 +1,83 @@
 import { listStreamDecks, openStreamDeck } from '@elgato-stream-deck/node';
 import sharp from 'sharp';
 import { visualSignature } from '../shared/visuals.js';
+import { animationEnabled } from '../shared/animation-settings.js';
 import { playStartupWave } from './startup-wave.js';
+import { playIconTransition } from './icon-transitions.js';
+
 export class Devices {
-  constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false }) {
-    Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive });
-    this.info = { connected: false, name: 'Virtuelles Stream Deck', rows: 3, columns: 5, count: 15, error: '' }; this.cache = new Map(); this.sent = new Map(); this.images = new Map(); this.renderQueue = Promise.resolve(); this.renderRevision = 0; this.startupPlayed = false;
+  constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}) }) {
+    Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive, getSettings });
+    this.info = { connected: false, name: 'Virtuelles Stream Deck', rows: 3, columns: 5, count: 15, error: '' };
+    this.cache = new Map();
+    this.sent = new Map();
+    this.images = new Map();
+    this.displayed = new Map();
+    this.transitionCache = new Map();
+    this.renderQueue = Promise.resolve();
+    this.renderRevision = 0;
+    this.startupPlayed = false;
+    this.pendingTransition = null;
   }
+
   start() { this.scan(); this.timer = setInterval(() => this.scan(), 3000); }
+
   async scan() {
-    if (this.scanning || this.stopping) return; this.scanning = true;
+    if (this.scanning || this.stopping) return;
+    this.scanning = true;
     try {
       const devices = await listStreamDecks();
       if (this.deck && !devices.some(d => d.path === this.path)) await this.disconnect();
       this.available = devices.map(d => ({ path: d.path, name: d.modelInfo.name }));
       if (!this.deck && devices.length) {
         const target = devices.find(d => d.path === this.preferred) || devices[0];
-        this.deck = await openStreamDeck(target.path); this.path = target.path;
+        this.deck = await openStreamDeck(target.path);
+        this.path = target.path;
         const controls = this.deck.modelInfo.controls.filter(c => c.type === 'button');
         this.controls = controls;
-        this.info = { connected: true, name: this.deck.modelInfo.name, serial: await this.deck.getSerialNumber(), count: controls.length, rows: Math.max(...controls.map(c => c.row)) + 1, columns: Math.max(...controls.map(c => c.column)) + 1, error: '' };
-        this.deck.on('down', c => { if (c.type === 'button') { this.skipStartupAnimation(); this.onDown(c.index); } });
+        this.info = {
+          connected: true, name: this.deck.modelInfo.name, serial: await this.deck.getSerialNumber(),
+          count: controls.length, rows: Math.max(...controls.map(c => c.row)) + 1,
+          columns: Math.max(...controls.map(c => c.column)) + 1, error: '',
+        };
+        this.deck.on('down', c => {
+          if (c.type === 'button') { this.skipStartupAnimation(); this.skipTransition(); this.onDown(c.index); }
+        });
         this.deck.on('up', c => { if (c.type === 'button') this.onUp(c.index); });
         this.deck.on('error', error => { this.info.error = error.message; this.disconnect().catch(() => {}); });
-        this.sent.clear(); await this.startupAnimation();
+        this.sent.clear();
+        await this.startupAnimation();
       } else if (!devices.length && this.info.error) { this.info.error = ''; this.onStatus(); }
-    } catch (error) { const message = `USB-Zugriff fehlgeschlagen: ${error.message}`; if (this.info.error !== message) { this.info.error = message; this.onStatus(); } }
-    finally { this.scanning = false; }
+    } catch (error) {
+      const message = `USB-Zugriff fehlgeschlagen: ${error.message}`;
+      if (this.info.error !== message) { this.info.error = message; this.onStatus(); }
+    } finally { this.scanning = false; }
   }
+
   async select(devicePath) { this.preferred = devicePath; await this.disconnect(); await this.scan(); }
-  async disconnect() { this.skipStartupAnimation(); const deck = this.deck; this.deck = null; this.path = null; this.sent.clear(); if (deck) { deck.removeAllListeners(); await deck.close().catch(() => {}); } this.info.connected = false; this.onStatus(); }
+
+  async disconnect() {
+    this.skipStartupAnimation();
+    this.transitionController?.abort();
+    this.pendingTransition = null;
+    const deck = this.deck;
+    this.deck = null;
+    this.path = null;
+    this.sent.clear();
+    this.displayed.clear();
+    this.transitionCache.clear();
+    if (deck) { deck.removeAllListeners(); await deck.close().catch(() => {}); }
+    this.info.connected = false;
+    this.onStatus();
+  }
+
   skipStartupAnimation() { this.startupController?.abort(); }
+
+  skipTransition() {
+    this.pendingTransition = null;
+    if (this.transitionController) { this.transitionController.abort(); void this.render(); }
+  }
+
   startupAnimation() {
     if (this.startupPlayed || !this.controls.some(c => c.feedbackType === 'lcd')) { this.onStatus(); return this.render(); }
     this.startupPlayed = true;
@@ -39,17 +86,19 @@ export class Devices {
     this.startupController = controller;
     this.info.animating = true;
     ++this.renderRevision;
-    // All regular image updates wait behind this job. They still update the
-    // image bank immediately so the latest profile is ready when it finishes.
     this.renderQueue = this.renderQueue.catch(() => {}).then(async () => {
       try {
         if (this.deck !== deck || controller.signal.aborted) return;
         await deck.setBrightness(this.getBrightness());
         await playStartupWave(deck, this.controls, { signal: controller.signal });
+        if (!controller.signal.aborted && !this.pendingTransition && animationEnabled(this.getSettings(), 'reveal')) {
+          this.pendingTransition = { kind: 'reveal' };
+        }
       } catch (error) {
         if (!controller.signal.aborted && this.deck === deck) this.info.error = `Startanimation: ${error.message}`;
       } finally {
         this.sent.clear();
+        this.displayed.clear();
         this.startupController = null;
         this.info.animating = false;
         this.onStatus();
@@ -58,37 +107,113 @@ export class Devices {
     this.onStatus();
     return this.renderQueue.then(() => this.render());
   }
-  setImages(images) { this.images = new Map(images.map(({ signature, image }) => [signature, image])); return this.render(); }
+
+  navigateTransition(direction = 'in') {
+    this.pendingTransition = animationEnabled(this.getSettings(), 'folder') ? { kind: 'folder', direction } : null;
+    return this.render();
+  }
+
+  setImages(images) {
+    this.images = new Map(images.map(({ signature, image }) => [signature, image]));
+    return this.render();
+  }
+
+  async imageBuffer(control, signature, image) {
+    const { width, height } = control.pixelSize;
+    const id = `${signature}:${width}x${height}`;
+    let buffer = this.cache.get(id);
+    if (!buffer) {
+      buffer = await sharp(Buffer.from(image.split(',')[1], 'base64')).resize(width, height).removeAlpha().raw().toBuffer();
+      this.cache.set(id, buffer);
+      if (this.cache.size > 256) this.cache.delete(this.cache.keys().next().value);
+    }
+    return buffer;
+  }
+
   render() {
     const revision = ++this.renderRevision;
+    this.transitionController?.abort();
     this.renderQueue = this.renderQueue.catch(() => {}).then(async () => {
-      if (revision !== this.renderRevision) return;
-      const deck = this.deck; if (!deck) return;
+      if (revision !== this.renderRevision || this.stopping) return;
+      const deck = this.deck;
+      if (!deck) return;
+      const current = () => this.deck === deck && revision === this.renderRevision && !this.stopping;
       await deck.setBrightness(this.getBrightness());
       const keys = this.getKeys();
-      for (const c of this.controls) {
-        if (this.deck !== deck || revision !== this.renderRevision) return;
-        const key = keys[c.index];
+      const targets = [];
+      let missing = false;
+      for (const control of this.controls) {
+        if (!current()) return;
+        const key = keys[control.index];
         const signature = visualSignature(key, this.isActive(key));
-        const image = this.images.get(signature);
-        if (this.sent.get(c.index) === signature) continue;
-        if (c.feedbackType === 'lcd') {
-          const size = c.pixelSize;
-          // Keep the previous artwork until the exact new image is ready.
-          // Never flash a label-only placeholder during navigation.
-          if (!image) continue;
-          let buffer;
-          {
-            const cacheKey = signature + `${size.width}x${size.height}`;
-            buffer = this.cache.get(cacheKey);
-            if (!buffer) { buffer = await sharp(Buffer.from(image.split(',')[1], 'base64')).resize(size.width, size.height).removeAlpha().raw().toBuffer(); this.cache.set(cacheKey, buffer); if (this.cache.size > 256) this.cache.delete(this.cache.keys().next().value); }
-          }
-          if (revision !== this.renderRevision || this.deck !== deck) return;
-          await deck.fillKeyBuffer(c.index, buffer, { format: 'rgb' });
-        } else if (c.feedbackType === 'rgb') { const color = key?.color || '#000000'; await deck.fillKeyColor(c.index, parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16)); }
-        this.sent.set(c.index, signature);
+        if (control.feedbackType === 'lcd') {
+          const image = this.images.get(signature);
+          if (!image) { missing = true; continue; }
+          const buffer = await this.imageBuffer(control, signature, image);
+          targets.push({ control, buffer, signature });
+        }
       }
-    }).catch(error => { this.info.error = error.message; this.onStatus(); }); return this.renderQueue;
+      if (!current()) return;
+      const transition = this.pendingTransition;
+      if (transition && !animationEnabled(this.getSettings(), transition.kind)) this.pendingTransition = null;
+      if (this.pendingTransition) {
+        // Wait for the exact artwork instead of flashing icons before the effect.
+        if (missing) return;
+        this.pendingTransition = null;
+        if (targets.length) {
+          const controller = new AbortController();
+          this.transitionController = controller;
+          this.info.transitioning = transition.kind;
+          this.onStatus();
+          try {
+            await playIconTransition(deck, targets, this.displayed, {
+              ...transition, signal: controller.signal, cache: this.transitionCache,
+              onFrame: (index, buffer) => {
+                if (this.deck === deck) { this.displayed.set(index, buffer); this.sent.delete(index); }
+              },
+            });
+            if (current() && !controller.signal.aborted) {
+              for (const target of targets) this.sent.set(target.control.index, target.signature);
+            }
+          } catch (error) {
+            if (!controller.signal.aborted) { this.info.error = `Icon-Animation: ${error.message}`; this.onStatus(); }
+          } finally {
+            if (this.deck !== deck) this.transitionCache.clear();
+            this.transitionController = null;
+            this.info.transitioning = null;
+            this.onStatus();
+          }
+        }
+      }
+      // Also restores exact artwork after cancellation or an animation error.
+      for (const target of targets) {
+        if (!current()) return;
+        if (this.sent.get(target.control.index) === target.signature) continue;
+        await deck.fillKeyBuffer(target.control.index, target.buffer, { format: 'rgb' });
+        if (this.deck !== deck) return;
+        this.displayed.set(target.control.index, target.buffer);
+        this.sent.set(target.control.index, target.signature);
+      }
+      for (const control of this.controls.filter(c => c.feedbackType === 'rgb')) {
+        if (!current()) return;
+        const key = keys[control.index];
+        const signature = visualSignature(key, this.isActive(key));
+        if (this.sent.get(control.index) === signature) continue;
+        const color = key?.color || '#000000';
+        await deck.fillKeyColor(control.index, parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16));
+        this.sent.set(control.index, signature);
+      }
+    }).catch(error => { this.info.error = error.message; this.onStatus(); });
+    return this.renderQueue;
   }
-  async close() { this.stopping = true; this.skipStartupAnimation(); clearInterval(this.timer); await this.renderQueue.catch(() => {}); if (this.deck) { await this.deck.resetToLogo().catch(() => {}); await this.disconnect(); } }
+
+  async close() {
+    this.stopping = true;
+    this.skipStartupAnimation();
+    this.transitionController?.abort();
+    this.pendingTransition = null;
+    clearInterval(this.timer);
+    await this.renderQueue.catch(() => {});
+    if (this.deck) { await this.deck.resetToLogo().catch(() => {}); await this.disconnect(); }
+  }
 }

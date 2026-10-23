@@ -9,8 +9,9 @@ import { Input } from './input.js';
 import { Devices } from './devices.js';
 import { Plugins } from './plugins.js';
 import { Actions } from './actions.js';
-import { visibleKeys, validateState } from '../shared/model.js';
-import { backKey, isKeyActive } from '../shared/visuals.js';
+import { validateState } from '../shared/model.js';
+import { isKeyActive } from '../shared/visuals.js';
+import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exec = promisify(execFile); const dev = process.argv.includes('--dev');
 let win, tray, store, state, input, devices, plugins, actions, folderPath = [], quitting = false;
@@ -22,20 +23,24 @@ const log = (level, title, message) => { const item = { id: crypto.randomUUID(),
 const publishState = () => emit({ type: 'state', state, folderPath });
 async function persist() { await store.save(state); }
 async function navigate(target) {
+  const previousPath = [...folderPath];
   if (target.profileId) { if (!state.profiles.some(p => p.id === target.profileId)) throw new Error('Profil nicht gefunden.'); state.activeProfileId = target.profileId; folderPath = []; await persist(); }
   else if (target.up) folderPath.pop();
   else if (Array.isArray(target.path)) {
     if (target.path.some(i => !Number.isInteger(i) || i < 0 || i > 127) || target.path.length > 12) throw new Error('Ungültiger Ordnerpfad.');
     folderPath = target.path;
   }
-  publishState(); status(); await devices.render();
+  publishState(); status();
+  if (!target.profileId && JSON.stringify(previousPath) !== JSON.stringify(folderPath)) {
+    await devices.navigateTransition(folderPath.length > previousPath.length ? 'in' : 'out');
+  } else await devices.render();
 }
-function keyAt(index) { const count = devices.info.count; if (folderPath.length && index === 0) return null; return visibleKeys(state, folderPath)[index - (folderPath.length ? 1 : 0)]; }
 async function execute(index, long = false) {
   if (!Number.isInteger(index) || index < 0 || index >= devices.info.count) throw new Error('Ungültige Taste.');
-  if (folderPath.length && index === 0) return navigate({ up: true });
-  const key = keyAt(index); if (!key) return;
-  if (key.actions[0]?.type === 'folder' && !long) return navigate({ path: [...folderPath, index - (folderPath.length ? 1 : 0)] });
+  const slot = deckSlots(state, folderPath, devices.info.count)[index];
+  if (slot.isBack) return navigate({ up: true });
+  const key = slot.key; if (!key) return;
+  if (key.actions[0]?.type === 'folder' && !long) return navigate({ path: [...folderPath, slot.childIndex] });
   await actions.execute(structuredClone(key), long);
 }
 function updateKey(id, change) {
@@ -58,7 +63,7 @@ else {
     try { state = await store.load(); } catch (e) { dialog.showErrorBox('MacroMaxx – Workspace', e.message); app.quit(); return; }
     input = new Input(status);
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
-    devices = new Devices({ onStatus: status, getKeys: () => folderPath.length ? [backKey, ...visibleKeys(state, folderPath)] : visibleKeys(state), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState),
+    devices = new Devices({ onStatus: status, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => slot.key), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState), getSettings: () => state.settings,
       onDown: index => { pressed.set(index, Date.now()); emit({ type: 'press', index, down: true }); },
       onUp: index => { const start = pressed.get(index); pressed.delete(index); emit({ type: 'press', index, down: false }); if (start) execute(index, Date.now() - start > 600).catch(e => log('error', 'Taste', e.message)); }
     });

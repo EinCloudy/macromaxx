@@ -29,11 +29,13 @@ Linux: AppImage. Windows: NSIS. macOS: dmg. Für die jeweiligen Plattformen auf 
 3. **Testen** oder die Hardwaretaste drücken. Ergebnisse stehen unter **Aktivitäten**.
 4. Aktionen in den Eigenschaften zu einer Kette ergänzen und umsortieren. Erneutes Auslösen stoppt eine laufende Kette. Mit Wartezeiten lassen sich Programme und Workflows koordinieren.
 5. **Langer Druck** kann separat belegt werden (ab 600 ms). Nicht belegte lange Drücke verwenden die kurze Belegung. Aktionen werden beim Loslassen ausgelöst.
-6. Ordner per Doppelklick oder Hardwaretaste öffnen. Die erste Taste führt eine Ebene zurück. Profile links verwalten; Profilwechsel können ebenfalls auf Tasten liegen.
+6. Ordner per Doppelklick oder Hardwaretaste öffnen. Die Zurück-Taste führt eine Ebene zurück und lässt sich wie andere Tasten per Drag-and-drop verschieben. Ihre Position wird pro Ordner gespeichert; beim Ziehen auf eine belegte Taste werden beide Plätze getauscht. Neue und bestehende Ordner beginnen standardmäßig oben links. Profile links verwalten; Profilwechsel können ebenfalls auf Tasten liegen.
 
 Tasten können per Drag-and-drop getauscht werden. Rückgängig/Wiederholen über die Toolbar oder Strg+Z / Strg+Umschalt+Z. Profilverwaltung über das Drei-Punkte-Menü. Änderungen werden automatisch gespeichert; USB-Bilder und Helligkeit live übertragen.
 
 Beim App-Start läuft auf dem ersten verbundenen Deck eine kurze violette Lichtwelle von der Mitte nach außen. Das Raster wird automatisch berücksichtigt: Beim 15-Tasten-Deck beginnt sie auf der mittleren Taste, beim XL symmetrisch um die vier zentralen Tasten. Anschließend erscheint die aktuelle Belegung. Ein Tastendruck überspringt die Animation; Ordnerwechsel und erneutes Verbinden spielen sie nicht erneut ab.
+
+Unter **Einstellungen → Deck-Animationen** lassen sich zwei zusätzliche Effekte unabhängig deaktivieren: **Ordnerübergänge** (kurzes Überblenden und seitliches Einschieben beim Öffnen/Verlassen eines Ordners, ca. 240 ms Wiedergabe) und **Icons nach Start einblenden** (sanftes Einblenden der Belegung von der Mitte nach außen nach der Startwelle, ca. 320 ms). Beide sind standardmäßig aktiviert, auch für bisherige Workspaces. Die Einstellungen werden gespeichert und mit exportiert. Die Startwelle bleibt immer aktiv. Tastendrücke überspringen laufende Effekte; schnelle Navigation bricht den alten Übergang ab und zeigt die aktuelle Zielseite. Ohne die optionalen Effekte werden weiterhin direkt die zwischengespeicherten Icons angezeigt.
 
 ## Aktionen
 

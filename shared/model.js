@@ -27,7 +27,7 @@ export function initialState() {
   entries.forEach(([type, label, icon, color], i) => { profile.keys[i] = { ...makeKey(type, label), icon, color }; });
   profile.keys[1].actions[0].url = 'https://www.google.com';
   profile.keys[2].actions[0].path = '~';
-  return { version: 1, profiles: [profile], activeProfileId: profile.id, settings: { brightness: 65, theme: 'dark', closeToTray: true, autostart: false, obsUrl: 'ws://127.0.0.1:4455', obsPassword: '' } };
+  return { version: 1, profiles: [profile], activeProfileId: profile.id, settings: { brightness: 65, theme: 'dark', closeToTray: true, autostart: false, obsUrl: 'ws://127.0.0.1:4455', obsPassword: '', folderAnimations: true, iconRevealAnimation: true } };
 }
 export function validateState(value) {
   if (!value || value.version !== 1 || !Array.isArray(value.profiles) || !value.profiles.length || value.profiles.length > 100) throw new Error('Ungültige Profildatei (Version 1 erwartet).');
@@ -37,6 +37,7 @@ export function validateState(value) {
     for (const key of items) if (key) {
       if (++count > 10000 || typeof key.id !== 'string' || keyIds.has(key.id) || typeof key.label !== 'string' || key.label.length > 80 || typeof key.icon !== 'string' || typeof key.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(key.color) || !/^#[0-9a-f]{6}$/i.test(key.background) || typeof key.image !== 'string') throw new Error('Ungültige Taste.');
       keyIds.add(key.id);
+      if (key.backPosition !== undefined && (!Number.isInteger(key.backPosition) || key.backPosition < 0 || key.backPosition > 127)) throw new Error('Ungültige Position der Zurück-Taste.');
       if (key.image && !/^data:image\/(png|jpeg|webp);base64,/.test(key.image)) throw new Error('Ungültiges Tastenbild.');
       for (const actions of [key.actions, key.longActions]) {
         if (!Array.isArray(actions) || actions.length > 100) throw new Error('Ungültige Aktionskette.');
@@ -49,6 +50,9 @@ export function validateState(value) {
   if (!ids.has(value.activeProfileId)) throw new Error('Aktives Profil fehlt.');
   if (!value.settings || !Number.isFinite(value.settings.brightness) || value.settings.brightness < 0 || value.settings.brightness > 100) throw new Error('Ungültige Einstellungen.');
   if (typeof value.settings.autostart !== 'boolean' || typeof value.settings.closeToTray !== 'boolean' || typeof value.settings.obsUrl !== 'string' || typeof value.settings.obsPassword !== 'string' || !['dark', 'light'].includes(value.settings.theme)) throw new Error('Ungültige App-Einstellungen.');
+  for (const name of ['folderAnimations', 'iconRevealAnimation']) {
+    if (value.settings[name] !== undefined && typeof value.settings[name] !== 'boolean') throw new Error('Ungültige Animationseinstellung.');
+  }
   return value;
 }
 export function visibleKeys(state, path = []) {
