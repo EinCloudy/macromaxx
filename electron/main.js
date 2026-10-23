@@ -36,6 +36,7 @@ async function navigate(target) {
   } else await devices.render();
 }
 async function execute(index, long = false) {
+  if (quitting) return;
   if (!Number.isInteger(index) || index < 0 || index >= devices.info.count) throw new Error('Ungültige Taste.');
   const slot = deckSlots(state, folderPath, devices.info.count)[index];
   if (slot.isBack) return navigate({ up: true });
@@ -110,7 +111,16 @@ else {
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
     quitting = true;
-    if (devices && !app.cleanupDone) { event.preventDefault(); app.cleanupDone = true; actions.close(); plugins.close(); Promise.all([input.close(), devices.close(), store.queue]).finally(() => app.quit()); }
+    if (!devices || app.cleanupDone) return;
+    event.preventDefault();
+    if (app.cleanupStarted) return;
+    app.cleanupStarted = true;
+    actions.close();
+    plugins.close();
+    Promise.allSettled([input.close(), devices.close(), store.queue]).then(() => {
+      app.cleanupDone = true;
+      app.quit();
+    });
   });
   app.on('window-all-closed', () => { if (!state?.settings.closeToTray) app.quit(); });
 }

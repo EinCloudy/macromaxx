@@ -35,6 +35,8 @@ Tasten können per Drag-and-drop getauscht werden. Rückgängig/Wiederholen übe
 
 Beim App-Start läuft auf dem ersten verbundenen Deck eine kurze violette Lichtwelle von der Mitte nach außen. Das Raster wird automatisch berücksichtigt: Beim 15-Tasten-Deck beginnt sie auf der mittleren Taste, beim XL symmetrisch um die vier zentralen Tasten. Anschließend erscheint die aktuelle Belegung. Ein Tastendruck überspringt die Animation; Ordnerwechsel und erneutes Verbinden spielen sie nicht erneut ab.
 
+Beim tatsächlichen Beenden läuft dieselbe Lichtwelle rückwärts: von außen zurück zur Mitte, danach wird das Gerät freigegeben. Das gilt für „Beenden“ im Tray, den Beenden-Button und das Schließen des Fensters bei deaktiviertem Tray-Betrieb. Minimieren in den Tray spielt keine Endanimation ab. Während der Endwelle werden keine Tastenaktionen mehr ausgelöst; wiederholte Beenden-Anforderungen starten die Animation nicht erneut. Start- und Endwelle bleiben unabhängig von den optionalen Icon-/Ordner-Effekten aktiv.
+
 Unter **Einstellungen → Deck-Animationen** lassen sich zwei zusätzliche Effekte unabhängig deaktivieren: **Ordnerübergänge** (kurzes Überblenden und seitliches Einschieben beim Öffnen/Verlassen eines Ordners, ca. 240 ms Wiedergabe) und **Icons nach Start einblenden** (sanftes Einblenden der Belegung von der Mitte nach außen nach der Startwelle, ca. 320 ms). Beide sind standardmäßig aktiviert, auch für bisherige Workspaces. Die Einstellungen werden gespeichert und mit exportiert. Die Startwelle bleibt immer aktiv. Tastendrücke überspringen laufende Effekte; schnelle Navigation bricht den alten Übergang ab und zeigt die aktuelle Zielseite. Ohne die optionalen Effekte werden weiterhin direkt die zwischengespeicherten Icons angezeigt.
 
 ## Aktionen

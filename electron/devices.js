@@ -28,23 +28,28 @@ export class Devices {
     this.scanning = true;
     try {
       const devices = await listStreamDecks();
+      if (this.stopping) return;
       if (this.deck && !devices.some(d => d.path === this.path)) await this.disconnect();
       this.available = devices.map(d => ({ path: d.path, name: d.modelInfo.name }));
       if (!this.deck && devices.length) {
         const target = devices.find(d => d.path === this.preferred) || devices[0];
-        this.deck = await openStreamDeck(target.path);
+        const opened = await openStreamDeck(target.path);
+        if (this.stopping) { await opened.close().catch(() => {}); return; }
+        this.deck = opened;
         this.path = target.path;
         const controls = this.deck.modelInfo.controls.filter(c => c.type === 'button');
         this.controls = controls;
+        const serial = await opened.getSerialNumber();
+        if (this.stopping || this.deck !== opened) return;
         this.info = {
-          connected: true, name: this.deck.modelInfo.name, serial: await this.deck.getSerialNumber(),
+          connected: true, name: this.deck.modelInfo.name, serial,
           count: controls.length, rows: Math.max(...controls.map(c => c.row)) + 1,
           columns: Math.max(...controls.map(c => c.column)) + 1, error: '',
         };
         this.deck.on('down', c => {
-          if (c.type === 'button') { this.skipStartupAnimation(); this.skipTransition(); this.onDown(c.index); }
+          if (!this.stopping && c.type === 'button') { this.skipStartupAnimation(); this.skipTransition(); this.onDown(c.index); }
         });
-        this.deck.on('up', c => { if (c.type === 'button') this.onUp(c.index); });
+        this.deck.on('up', c => { if (!this.stopping && c.type === 'button') this.onUp(c.index); });
         this.deck.on('error', error => { this.info.error = error.message; this.disconnect().catch(() => {}); });
         this.sent.clear();
         await this.startupAnimation();
@@ -60,6 +65,7 @@ export class Devices {
   async disconnect() {
     this.skipStartupAnimation();
     this.transitionController?.abort();
+    this.shutdownController?.abort();
     this.pendingTransition = null;
     const deck = this.deck;
     this.deck = null;
@@ -209,13 +215,47 @@ export class Devices {
     return this.renderQueue;
   }
 
-  async close() {
+  close() {
+    // Repeated quit requests must neither replay nor interrupt the end wave.
+    if (!this.closePromise) this.closePromise = this.closeDevice();
+    return this.closePromise;
+  }
+
+  async closeDevice() {
     this.stopping = true;
     this.skipStartupAnimation();
     this.transitionController?.abort();
     this.pendingTransition = null;
     clearInterval(this.timer);
     await this.renderQueue.catch(() => {});
-    if (this.deck) { await this.deck.resetToLogo().catch(() => {}); await this.disconnect(); }
+    const deck = this.deck;
+    if (!deck) return;
+    const controller = new AbortController();
+    this.shutdownController = controller;
+    this.info.closing = true;
+    this.onStatus();
+    let timer;
+    try {
+      // An optional visual effect must not indefinitely delay shutdown if a
+      // device stops replying. Normal rendering has already been stopped.
+      const deadline = new Promise(resolve => {
+        timer = setTimeout(() => { controller.abort(); resolve(); }, 4000);
+      });
+      await Promise.race([
+        playStartupWave(deck, this.controls || [], { reverse: true, signal: controller.signal }),
+        deadline,
+      ]);
+    } catch (error) {
+      if (!controller.signal.aborted && this.deck === deck) this.info.error = `Beenden-Animation: ${error.message}`;
+    } finally {
+      clearTimeout(timer);
+      this.shutdownController = null;
+      this.info.closing = false;
+      this.onStatus();
+      if (this.deck === deck) {
+        await deck.resetToLogo().catch(() => {});
+        await this.disconnect();
+      }
+    }
   }
 }

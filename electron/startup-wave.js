@@ -3,7 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 // Use the actual grid rather than model names: odd grids have one origin,
 // while even grids (e.g. the XL's 8 × 4 keys) expand around their centre.
-export function createWavePlan(controls, { frameCount = 28, fps = 20, levels = 20 } = {}) {
+export function createWavePlan(controls, { frameCount = 28, fps = 20, levels = 20, reverse = false } = {}) {
   const buttons = controls.filter(control => control.type === 'button' && control.feedbackType === 'lcd');
   if (!buttons.length) return { frames: [], frameMs: 1000 / fps };
   const center = {
@@ -21,7 +21,7 @@ export function createWavePlan(controls, { frameCount = 28, fps = 20, levels = 2
       return { control, level };
     });
   });
-  return { frames, frameMs: 1000 / fps, center, levels };
+  return { frames: reverse ? frames.reverse() : frames, frameMs: 1000 / fps, center, levels };
 }
 
 async function glowImage(width, height, level, levels) {
@@ -42,9 +42,9 @@ async function glowImage(width, height, level, levels) {
 }
 
 export async function playStartupWave(deck, controls, {
-  signal, now = () => performance.now(), wait = ms => sleep(ms, undefined, { signal }),
+  signal, reverse = false, now = () => performance.now(), wait = ms => sleep(ms, undefined, { signal }),
 } = {}) {
-  const plan = createWavePlan(controls);
+  const plan = createWavePlan(controls, { reverse });
   if (!plan.frames.length || signal?.aborted) return;
   const palette = new Map();
   const prepared = new Map();

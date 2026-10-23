@@ -207,7 +207,7 @@ function AnimationSettings({ state, change }) {
   const reveal = animationEnabled(state.settings, 'reveal');
   return <section className="settings-card">
     <div className="settings-title"><span className="action-icon"><Icon name="Sparkles" /></span><div><h3>Deck-Animationen</h3><p>Dezente Bewegung auf deinem Stream Deck.</p></div></div>
-    <div className="setting-line"><div><strong>Startwelle</strong><small>Die Lichtwelle begrüßt dich bei jedem App-Start.</small></div><span className="badge accent">Immer aktiv</span></div>
+    <div className="setting-line"><div><strong>Start- & Endwelle</strong><small>Beim Start von innen nach außen, beim Beenden umgekehrt.</small></div><span className="badge accent">Immer aktiv</span></div>
     <div className="setting-line"><div><strong>Ordnerübergänge</strong><small>Kurzer Überblend- und Schiebeeffekt beim Öffnen und Verlassen von Ordnern.</small></div><button role="switch" aria-checked={folder} aria-label="Ordneranimation" className={`switch ${folder ? 'on' : ''}`} onClick={() => change(s => { s.settings.folderAnimations = !folder; })}><i /></button></div>
     <div className="setting-line"><div><strong>Icons nach Start einblenden</strong><small>Die Belegung erscheint nach der Startwelle sanft von der Mitte nach außen.</small></div><button role="switch" aria-checked={reveal} aria-label="Icon-Einblendanimation" className={`switch ${reveal ? 'on' : ''}`} onClick={() => change(s => { s.settings.iconRevealAnimation = !reveal; })}><i /></button></div>
     <p className="muted-text">Beide Effekte lassen sich unabhängig ausschalten. Die Startwelle bleibt immer aktiv. Ein Tastendruck überspringt laufende Effekte.</p>
