@@ -1,0 +1,7 @@
+{
+  "id": "hello",
+  "name": "Hallo, MacroMaxx!",
+  "description": "Beispielplugin mit dynamischer Tastenbeschriftung.",
+  "main": "index.js",
+  "fields": [{ "key": "name", "label": "Dein Name", "default": "Welt" }]
+}
