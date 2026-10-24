@@ -106,7 +106,7 @@ class EIS:
         self.context = self.lib.ei_new_sender(None)
         self.lib.ei_configure_name(self.context, b'MacroMaxx')
         if self.lib.ei_setup_backend_fd(self.context, fd) < 0:
-            raise RuntimeError('EIS-Verbindung fehlgeschlagen.')
+            raise RuntimeError('EIS connection failed.')
         self.watch = GLib.io_add_watch(self.lib.ei_get_fd(self.context), GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, self.pump)
         self.pump()
         GLib.timeout_add_seconds(8, self.timeout)
@@ -114,7 +114,7 @@ class EIS:
     def timeout(self):
         if not self.completed:
             self.completed = True
-            self.on_error('Der Desktop hat keine virtuelle Tastatur bereitgestellt. EIS-Ereignisse: ' + str(self.events))
+            self.on_error('The desktop did not provide a virtual keyboard. EIS events: ' + str(self.events))
         return False
 
     def pump(self, *args):
@@ -157,14 +157,14 @@ class EIS:
                 emit({'event': 'closed'})
                 if not self.completed:
                     self.completed = True
-                    self.on_error('EIS-Verbindung vom Desktop geschlossen.')
+                    self.on_error('The desktop closed the EIS connection.')
             self.lib.ei_event_unref(event)
             self.lib.ei_dispatch(self.context)
         return not self.disconnected
 
     def send(self, code, state):
         if not self.device:
-            raise RuntimeError('Virtuelle Tastatur ist pausiert. Bitte Freigabe erneut einrichten.')
+            raise RuntimeError('The virtual keyboard is paused. Set up keyboard permission again.')
         self.lib.ei_device_keyboard_key(self.device, code, bool(state))
         self.lib.ei_device_frame(self.device, time.monotonic_ns() // 1000)
         self.pump()
@@ -182,7 +182,7 @@ def request(method, args, options, callback, failure):
         if code == 0:
             callback(results)
         else:
-            failure('Berechtigung abgelehnt oder Dialog geschlossen.')
+            failure('Permission denied or dialog closed.')
     match = bus.add_signal_receiver(response, signal_name='Response', dbus_interface='org.freedesktop.portal.Request', path=handle)
     try:
         method(*args, options, timeout=120)
@@ -210,7 +210,7 @@ def process(message):
                     def started(result):
                         global ready, eis
                         if not int(result.get('devices', 0)) & 1:
-                            fail('Keine Tastaturfreigabe erhalten.')
+                            fail('Keyboard permission was not granted.')
                         else:
                             def authorized():
                                 global ready
@@ -221,7 +221,7 @@ def process(message):
                                     fd = remote.ConnectToEIS(dbus.ObjectPath(session), {}).take()
                                     eis = EIS(fd, authorized, fail)
                                 elif 'KDE' in os.environ.get('XDG_CURRENT_DESKTOP', '').upper():
-                                    fail('Für KDE bitte libei und libxkbcommon installieren.')
+                                    fail('Install libei and libxkbcommon for KDE.')
                                 else:
                                     authorized()
                             except Exception as error:
@@ -231,7 +231,7 @@ def process(message):
             request(remote.CreateSession, [], {'session_handle_token': dbus.String('mm' + uuid.uuid4().hex)}, created, fail)
         elif message['command'] == 'keys':
             if not session or not ready:
-                raise RuntimeError('Bitte zuerst in Einstellungen die Wayland-Tastatur freigeben.')
+                raise RuntimeError('Allow Wayland keyboard input in Settings first.')
             group = 0
             if eis:
                 group = eis.group
@@ -254,7 +254,7 @@ def process(message):
                         automatic_shift.discard(key)
                 else:
                     if eis:
-                        raise RuntimeError('Taste ist im aktuellen Tastaturlayout nicht verfügbar: ' + str(key))
+                        raise RuntimeError('Key is not available in the current keyboard layout: ' + str(key))
                     remote.NotifyKeyboardKeysym(dbus.ObjectPath(session), {}, dbus.Int32(key), dbus.UInt32(state))
                 if state:
                     pressed_symbols.add(key)

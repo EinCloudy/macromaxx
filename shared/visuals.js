@@ -1,5 +1,5 @@
 import { keyFontSize, resolvedKeyFont } from './key-text.js';
-export const backKey = { id: 'back', label: 'Zurück', icon: 'ArrowLeft', color: '#ad92ff', background: '#242231' };
+export const backKey = { id: 'back', label: 'Back', icon: 'ArrowLeft', color: '#ad92ff', background: '#242231' };
 
 export function isKeyActive(key, obs) {
   const action = key?.actions?.find(a => a.type === 'obs');

@@ -26,12 +26,12 @@ test('Workspace round-trip preserves nested folders, icons and long press action
 
 test('Malformed imports are rejected, including duplicate IDs and unsafe images', () => {
   const state = initialState(); state.profiles[0].keys[0].image = 'https://example.com/icon.svg';
-  assert.throws(() => validateState(state), /Tastenbild/);
+  assert.throws(() => validateState(state), /key image/);
   state.profiles[0].keys[0].image = '';
   state.profiles[0].keys[5] = structuredClone(state.profiles[0].keys[0]);
-  assert.throws(() => validateState(state), /Taste/);
+  assert.throws(() => validateState(state), /Invalid key/);
   state.profiles[0].keys[5] = null; delete state.profiles[0].keys[0].longActions;
-  assert.throws(() => validateState(state), /Aktionskette/);
+  assert.throws(() => validateState(state), /action chain/);
 });
 
 test('Serialized atomic saves recover from a corrupted primary file', async t => {
@@ -86,7 +86,7 @@ test('Hotkeys parse modifiers, function and navigation keys, and reject invalid 
   assert.deepEqual(parseKeys('Ctrl+Shift+F12').map(k => k.code), [0xffe3, 0xffe1, 0xffc9]);
   assert.equal(parseKeys('ALT+LEFT')[1].code, 0xff51);
   assert.equal(parseKeys('CTRL+PLUS')[1].code, 43);
-  assert.throws(() => parseKeys('CTRL+invalid'), /Unbekannte Taste/);
+  assert.throws(() => parseKeys('CTRL+invalid'), /Unknown key/);
 });
 
 test('OBS connects, requests studio state, executes actions and reflects live events', { timeout: 15000 }, async t => {

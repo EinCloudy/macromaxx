@@ -1,62 +1,69 @@
 # MacroMaxx
 
-Eine JavaScript-/Electron-App für Elgato Stream Decks: visueller Editor, Profile, Ordner, Aktionsketten und eigene Plugins. Deutsche Oberfläche, helles und dunkles Design, lokale Speicherung.
+A JavaScript/Electron app for Elgato Stream Decks: a visual editor, profiles, folders, action chains, and custom plugins. English interface, light and dark themes, and local storage.
 
-## Starten
+## Getting started
 
-Voraussetzung: **Node.js 22.12+**, npm und eine grafische Desktop-Sitzung.
+Requirements: **Node.js 22.12+**, npm, and a graphical desktop session.
 
 ```sh
 npm install
 npm start
 ```
 
-Bei npm-Versionen mit blockierten Installationsskripten die Skripte für `electron`, `esbuild`, `node-hid` und `@julusian/jpeg-turbo` freigeben (`npm install-scripts approve …`) und `npm rebuild` ausführen. Die im Projekt gespeicherten Freigaben gelten für die festgeschriebenen Versionen.
+If your npm version blocks installation scripts, approve the scripts for `electron`, `esbuild`, `node-hid`, and `@julusian/jpeg-turbo` (`npm install-scripts approve …`), then run `npm rebuild`. The approvals stored in this project apply to the pinned versions.
 
 ```sh
-npm run dev    # Vite mit Hot Reload + Electron
-npm test       # Kernlogik, echte lokale HTTP-Anfragen, Plugin-Prozess und OBS-Testserver
-npm run pack   # Entpackte Desktop-App in release/
-npm run dist   # Installer für die aktuelle Plattform
+npm run dev    # Vite with hot reload + Electron
+npm test       # Core logic, local HTTP requests, plugin processes, and an OBS test server
+npm run pack   # Unpacked desktop app in release/
+npm run dist   # Installer for the current platform
 ```
 
-Linux: AppImage. Windows: NSIS. macOS: dmg. Für die jeweiligen Plattformen auf dem entsprechenden Betriebssystem bauen; Signierung und Notarisierung sind nicht eingerichtet.
+Linux: AppImage. Windows: NSIS. macOS: dmg. Build on the corresponding operating system for each platform. Code signing and notarization are not configured.
 
-## Bedienung
+## Using the app
 
-1. Aktion aus der rechten Bibliothek auf eine Taste ziehen oder freie Taste anklicken und eine Aktion auswählen.
-2. **Eigenschaften** öffnen: Beschriftung, Schriftgröße, Icon, Farbe, eigenes Bild und Aktionsparameter einstellen. Die Schriftgröße ist pro Taste von 10 bis 32 einstellbar – per Regler oder Zahlenfeld, mit direkter Vorschau und Übertragung auf das Deck. Unter **Einstellungen → Schrift & Beschriftung** lässt sich die globale Standardgröße ändern (Werkseinstellung 16). Neue Tasten sowie vorhandene Tasten ohne eigene Größenangabe übernehmen diesen Wert automatisch, auch in Unterordnern und für die Zurück-Taste. Eigene Größen bleiben erhalten; „Standard“ in den Tasteneigenschaften entfernt die individuelle Größenangabe und aktiviert wieder die Vererbung. Lange Beschriftungen werden auf bis zu zwei Zeilen umbrochen und bei Bedarf mit „…“ gekürzt. Globale und individuelle Einstellungen bleiben beim Duplizieren bzw. Import/Export erhalten.
-3. **Testen** oder die Hardwaretaste drücken. Ergebnisse stehen unter **Aktivitäten**.
-4. Aktionen in den Eigenschaften zu einer Kette ergänzen und umsortieren. Erneutes Auslösen stoppt eine laufende Kette. Mit Wartezeiten lassen sich Programme und Workflows koordinieren.
-5. **Langer Druck** kann separat belegt werden (ab 600 ms). Nicht belegte lange Drücke verwenden die kurze Belegung. Aktionen werden beim Loslassen ausgelöst.
-6. Ordner per Doppelklick oder Hardwaretaste öffnen. Die Zurück-Taste führt eine Ebene zurück und lässt sich wie andere Tasten per Drag-and-drop verschieben. Ihre Position wird pro Ordner gespeichert; beim Ziehen auf eine belegte Taste werden beide Plätze getauscht. Neue und bestehende Ordner beginnen standardmäßig oben links. Profile links verwalten; Profilwechsel können ebenfalls auf Tasten liegen.
+1. Drag an action from the library on the right onto a key, or select an empty key and choose an action.
+2. Open **Properties** to customize the label, font size, icon, color, image, and action parameters. Set a key's font size from 10 to 32 using the slider or number field, with live preview and hardware updates. Change the global default under **Settings → Text & labels** (factory default: 16). New keys and existing keys without an individual size inherit this value, including keys in subfolders and the Back key. Individual sizes are preserved. Choose **Default** in a key's properties to remove its override and restore inheritance. Long labels wrap onto up to two lines and are truncated with “…” when necessary. Global and individual settings are preserved when duplicating or importing/exporting.
+3. Click **Test** or press the physical key. Results appear under **Activity**.
+4. Add and reorder actions in Properties to build a chain. Trigger a running chain again to stop it. Use delays to coordinate applications and workflows.
+5. Assign a separate **Long press** action (at least 600 ms). Unassigned long presses use the short-press assignment. Actions run when the key is released.
+6. Open folders with a double-click or a physical key press. The Back key goes up one level and can be moved by drag and drop. Its position is saved per folder; dropping it onto an occupied key swaps the two slots. Folders default to the top-left Back position. Manage profiles on the left, or assign profile-switch actions to keys.
 
-Tasten können per Drag-and-drop getauscht werden. Rückgängig/Wiederholen über die Toolbar oder Strg+Z / Strg+Umschalt+Z. Profilverwaltung über das Drei-Punkte-Menü. Änderungen werden automatisch gespeichert; USB-Bilder und Helligkeit live übertragen.
+Swap keys with drag and drop. Undo/redo using the toolbar or Ctrl+Z / Ctrl+Shift+Z. Use the three-dot menu to manage a profile. Changes save automatically; key images and brightness are sent to the device live. Your existing custom profile names, labels, text, and action content are preserved when updating the app's interface language.
 
-Beim App-Start läuft auf dem ersten verbundenen Deck eine kurze violette Lichtwelle von der Mitte nach außen. Das Raster wird automatisch berücksichtigt: Beim 15-Tasten-Deck beginnt sie auf der mittleren Taste, beim XL symmetrisch um die vier zentralen Tasten. Anschließend erscheint die aktuelle Belegung. Ein Tastendruck überspringt die Animation; Ordnerwechsel und erneutes Verbinden spielen sie nicht erneut ab.
+### Animations
 
-Beim tatsächlichen Beenden läuft dieselbe Lichtwelle rückwärts: von außen zurück zur Mitte. Anschließend blenden die mittleren Tasten und der verbleibende Hintergrundglanz über eine kurze zusätzliche Ausblendphase vollständig bis Schwarz aus. Danach wird das Gerät freigegeben, ohne erneut das Geräte-Logo einzublenden. Das gilt für „Beenden“ im Tray, den Beenden-Button und das Schließen des Fensters bei deaktiviertem Tray-Betrieb. Minimieren in den Tray spielt keine Endanimation ab. Während der Endwelle werden keine Tastenaktionen mehr ausgelöst; wiederholte Beenden-Anforderungen starten die Animation nicht erneut. Start- und Endwelle bleiben unabhängig von den optionalen Icon-/Ordner-Effekten aktiv.
+At startup, a short purple light wave expands from the center of the first connected deck. It adapts to the layout: the center key on a 15-key deck, or the four central keys symmetrically on an XL. The current assignment appears afterwards. A key press skips the startup animation. Folder changes and reconnections do not replay it.
 
-Unter **Einstellungen → Deck-Animationen** lassen sich zwei zusätzliche Effekte unabhängig deaktivieren: **Ordnerübergänge** (kurzes Überblenden und seitliches Einschieben beim Öffnen/Verlassen eines Ordners, ca. 240 ms Wiedergabe) und **Icons nach Start einblenden** (sanftes Einblenden der Belegung von der Mitte nach außen nach der Startwelle, ca. 320 ms). Beide sind standardmäßig aktiviert, auch für bisherige Workspaces. Die Einstellungen werden gespeichert und mit exportiert. Die Startwelle bleibt immer aktiv. Tastendrücke überspringen laufende Effekte; schnelle Navigation bricht den alten Übergang ab und zeigt die aktuelle Zielseite. Ohne die optionalen Effekte werden weiterhin direkt die zwischengespeicherten Icons angezeigt.
+When quitting the app, the same wave runs in reverse, from the outside toward the center. The central keys and remaining background glow then fade completely to black in a short additional fade-out. The device is released without bringing back its logo. This applies to **Quit** in the tray, the quit button, and closing the window with tray mode disabled. Minimizing to the tray does not play the shutdown animation. Key actions stop during shutdown; repeated quit requests do not restart the wave. Startup and shutdown waves remain enabled independently of the optional effects.
 
-## Aktionen
+Under **Settings → Deck animations**, disable these optional effects independently:
 
-- **Hotkey:** Kombination aufnehmen oder `CTRL+SHIFT+M` eingeben. Auch Funktionstasten, Pfeiltasten, `META`, `SPACE`, `ENTER`, `PLUS`, `MINUS` etc. Drücken/Loslassen separat möglich (Linux/Windows). Gehaltene Tasten werden beim normalen Beenden und bei „Alle stoppen“ freigegeben.
-- **Website:** HTTP(S)- oder mailto-Adresse im Standardprogramm öffnen.
-- **Programm/Datei:** absoluten Pfad auswählen. Unter Linux werden ausführbare Dateien direkt gestartet, `.desktop`-Dateien über `gio launch` und andere Dateien/Verzeichnisse über das Standardprogramm geöffnet. `~` wird zum Home-Verzeichnis aufgelöst.
-- **Text:** Text in die Zwischenablage kopieren und einfügen. Der Zwischenablageinhalt wird dabei ersetzt. Zum Testen eine Wartezeit vorschalten, um die Zielanwendung zu fokussieren.
-- **Medien:** Play/Pause, Titelwechsel, Lautstärke und Stummschaltung. Unter Linux `playerctl` für Player, `wpctl` oder `pactl` für Lautstärke. Windows verwendet Medientasten. macOS-Lautstärke über AppleScript; globale Medien-Play/Pause-Tasten sind dort noch nicht implementiert.
-- **Webhook:** GET/POST/PUT/PATCH/DELETE/HEAD, JSON-Header, freier Body. JSON-Anfragen benötigen z. B. `{"Content-Type":"application/json"}`. HTTP-Fehler erscheinen im Protokoll. Timeout 15 Sekunden. Auch lokale Endpoints werden unterstützt.
-- **OBS Studio:** Szenenwechsel, Aufnahme/Streaming umschalten, Audioquelle stummschalten. Live-Status auf der Taste. OBS 28+ mit aktiviertem WebSocket-Server (Standardport 4455). Verbindung unter Einstellungen herstellen.
-- **Plugins:** [Schnittstelle und Beispiel](docs/PLUGINS.md).
+- **Folder transitions:** a short crossfade and slide when entering or leaving a folder, around 240 ms of playback.
+- **Reveal icons after startup:** assignments gently appear from the center after the startup wave, around 320 ms of playback.
 
-## Plattform-Einrichtung
+Both default to enabled, including for existing workspaces. Their settings are saved and exported. Key presses skip the startup wave and optional effects. Fast navigation cancels the previous transition and displays the latest destination. With optional effects disabled, cached icons appear directly.
+
+## Actions
+
+- **Hotkey:** record a combination or enter `CTRL+SHIFT+M`. Function keys, arrow keys, `META`, `SPACE`, `ENTER`, `PLUS`, `MINUS`, and others are supported. Separate hold/release actions are available on Linux and Windows. Held keys are released during normal shutdown and by **Stop all**.
+- **Website:** open an HTTP(S) or mailto URL in its default application.
+- **Open application:** choose an absolute application or file path. On Linux, executables launch directly, `.desktop` files use `gio launch`, and other files/directories open in their default application. `~` expands to your home directory.
+- **Type text:** copy text to the clipboard and paste it. This replaces the clipboard contents. When testing, add a delay first to give yourself time to focus the target application.
+- **Media controls:** play/pause, skip tracks, change volume, and mute. Linux uses `playerctl` for players, and `wpctl` or `pactl` for volume. Windows uses media keys. macOS volume uses AppleScript; global media play/pause keys are not implemented there yet.
+- **Webhook:** GET/POST/PUT/PATCH/DELETE/HEAD, JSON headers, and a custom body. JSON requests need a header such as `{"Content-Type":"application/json"}`. HTTP errors appear in Activity. Timeout: 15 seconds. Local endpoints are supported.
+- **OBS Studio:** switch scenes, toggle recording/streaming, and mute audio sources, with live key status. Requires OBS 28+ with its WebSocket server enabled (default port 4455). Connect in Settings.
+- **Plugin:** see the [plugin API and example](docs/PLUGINS.md).
+
+## Platform setup
 
 ### Linux / KDE Wayland
 
-Unter **Einstellungen → Tastatur & Geräte → Tastatur freigeben** den nativen Desktop-Dialog bestätigen. Die App fordert ausschließlich Tastaturzugriff an. Die Freigabe gilt für die laufende App-Sitzung und kann vom Desktop widerrufen werden.
+Open **Settings → Keyboard & devices → Allow keyboard input** and confirm the native desktop dialog. The app requests keyboard access only. Permission applies to the current app session and can be revoked by the desktop.
 
-Benötigt: `python3`, Python-D-Bus, PyGObject, `libei`, `libxkbcommon`, ein implementiertes RemoteDesktop-Portal und das passende Desktop-Backend (bei KDE `xdg-desktop-portal-kde`). Moderne Desktops erhalten Eingaben über EIS/libei; das aktuelle Tastaturlayout kommt direkt vom Compositor. Ältere Portale können die D-Bus-Eingabemethoden verwenden.
+Required: `python3`, Python D-Bus, PyGObject, `libei`, `libxkbcommon`, a RemoteDesktop portal implementation, and the desktop's portal backend (`xdg-desktop-portal-kde` on KDE). Modern desktops receive input through EIS/libei, with the current keyboard layout supplied by the compositor. Older portals can use D-Bus input methods.
 
 ```sh
 # Debian / Ubuntu
@@ -65,39 +72,39 @@ sudo apt install python3-dbus python3-gi playerctl libei1 libxkbcommon0
 sudo pacman -S python-dbus python-gobject playerctl libei libxkbcommon
 ```
 
-Wenn der USB-Zugriff scheitert: **USB-Zugriff einrichten** installiert nach Passwortabfrage eine udev-Regel für Elgato-HID-Geräte. Anschließend das Deck ggf. neu verbinden. Die Regel liegt unter `/etc/udev/rules.d/70-macromaxx-streamdeck.rules`. Bereits vorhandene Zugriffsrechte reichen aus; die Installation ist dann unnötig. Bei belegtem Gerät andere Stream-Deck-Software schließen.
+If USB access fails, **Set up USB access** installs a udev rule for Elgato HID devices after a password prompt. Reconnect the deck if needed. The rule is installed at `/etc/udev/rules.d/70-macromaxx-streamdeck.rules`. Existing access permissions are sufficient; installation is unnecessary if the device already connects. Close other Stream Deck applications if the device is busy.
 
 ### Linux / X11
 
-`xdotool` für Hotkeys installieren. Bei einer Wayland-Sitzung wird absichtlich das Portal verwendet, damit auch native Wayland-Anwendungen erreicht werden.
+Install `xdotool` for hotkeys. Wayland sessions use the portal so native Wayland applications can receive input as well.
 
 ### Windows
 
-Tastatureingaben über Windows `keybd_event` (PowerShell-Helfer). Anwendungen mit erhöhten Rechten können Eingaben von einer normal gestarteten App blockieren.
+Keyboard input uses Windows `keybd_event` through a PowerShell helper. Elevated applications can block input from an app running with regular user permissions.
 
 ### macOS
 
-Bedienungshilfen für MacroMaxx bzw. die Entwicklungsumgebung freigeben. Tastenkombinationen über System Events. Gedrückt-halten/Loslassen und einige Sondertasten werden dort noch nicht unterstützt und als Fehler gemeldet.
+Grant Accessibility access to MacroMaxx or your development environment. Key combinations use System Events. Holding/releasing keys and some special keys are not supported there yet and report an error.
 
-## Daten und Export
+## Data and export
 
-`workspace.json` im Electron-Benutzerdatenverzeichnis (Linux üblicherweise `~/.config/MacroMaxx/`, abhängig von Electron/App-Name auch `~/.config/macromaxx/`). Die letzte gültige Version liegt als `workspace.json.bak` daneben. Schreibvorgänge erfolgen serialisiert über eine temporäre Datei; bei beschädigter Hauptdatei wird die Sicherung gelesen. Aktivitätsprotokolle bleiben im Arbeitsspeicher.
+`workspace.json` is stored in Electron's user-data directory (usually `~/.config/MacroMaxx/` or `~/.config/macromaxx/` on Linux, depending on the app name). The previous valid version is kept beside it as `workspace.json.bak`. Writes are serialized through a temporary file; a damaged primary file is recovered from the backup. Activity logs stay in memory.
 
-Import/Export unter Einstellungen. Ein Import ersetzt den Workspace nach Bestätigung. Icons sind eingebettet. OBS-Passwörter und Webhook-Zugangsdaten werden lokal gespeichert und sind **auch in Exportdateien enthalten**.
+Import/export is available in Settings. Importing replaces the workspace after confirmation. Images are embedded. OBS passwords and webhook credentials are stored locally and **are also included in export files**.
 
-Die App verwaltet ein aktives USB-Deck; bei mehreren angeschlossenen Geräten kann das Zielgerät ausgewählt werden. Unterstützt werden die von `@elgato-stream-deck/node` erkannten Tastengeräte. Encoder, Touchleisten und gerätespezifische Zusatzfunktionen sind nicht im Editor abgebildet. Beim Wechsel auf kleinere Geräte bleiben außerhalb des sichtbaren Rasters liegende Tasten im Profil erhalten.
+The app controls one active USB deck. Select a target device if multiple decks are connected. Key devices recognized by `@elgato-stream-deck/node` are supported. Encoders, touch strips, and model-specific extras are not represented in the editor. Keys outside a smaller device's visible grid remain in the profile.
 
-## Projektaufbau
+## Project structure
 
 ```text
-electron/     Hauptprozess, Preload, Geräte, Aktionen, Portal und Plugins
-src/          React-Editor und Darstellung der Hardware-Tastenbilder
-shared/       Datenmodell und Importvalidierung
-plugins/      Mitgeliefertes Beispielplugin
-tests/        Node-Test-Suite
-docs/         Plugin-Dokumentation
+electron/     Main process, preload, hardware, actions, portal, and plugins
+src/          React editor and hardware key-image rendering
+shared/       Data model, shared layout, and import validation
+plugins/      Bundled example plugin
+tests/        Node test suite
+docs/         Plugin documentation
 ```
 
-Die Oberfläche kann separat über `npx vite --host 127.0.0.1` als Browser-Vorschau gestartet werden. Dort werden Profile im Local Storage gespeichert; native Aktionen sind nur in Electron verfügbar.
+Run `npx vite --host 127.0.0.1` for a standalone browser preview. Profiles are stored in Local Storage there; native actions require Electron.
 
-Unabhängiges Projekt, keine offizielle Elgato-Software.
+Independent project, not official Elgato software.

@@ -9,7 +9,7 @@ import { resolvedKeyFont } from '../shared/key-text.js';
 export class Devices {
   constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}) }) {
     Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive, getSettings });
-    this.info = { connected: false, name: 'Virtuelles Stream Deck', rows: 3, columns: 5, count: 15, error: '' };
+    this.info = { connected: false, name: 'Virtual Stream Deck', rows: 3, columns: 5, count: 15, error: '' };
     this.cache = new Map();
     this.sent = new Map();
     this.images = new Map();
@@ -56,7 +56,7 @@ export class Devices {
         await this.startupAnimation();
       } else if (!devices.length && this.info.error) { this.info.error = ''; this.onStatus(); }
     } catch (error) {
-      const message = `USB-Zugriff fehlgeschlagen: ${error.message}`;
+      const message = `USB access failed: ${error.message}`;
       if (this.info.error !== message) { this.info.error = message; this.onStatus(); }
     } finally { this.scanning = false; }
   }
@@ -104,7 +104,7 @@ export class Devices {
           this.pendingTransition = { kind: 'reveal' };
         }
       } catch (error) {
-        if (!controller.signal.aborted && this.deck === deck) this.info.error = `Startanimation: ${error.message}`;
+        if (!controller.signal.aborted && this.deck === deck) this.info.error = `Startup animation: ${error.message}`;
       } finally {
         this.sent.clear();
         this.displayed.clear();
@@ -186,7 +186,7 @@ export class Devices {
               for (const target of targets) this.sent.set(target.control.index, target.signature);
             }
           } catch (error) {
-            if (!controller.signal.aborted) { this.info.error = `Icon-Animation: ${error.message}`; this.onStatus(); }
+            if (!controller.signal.aborted) { this.info.error = `Icon animation: ${error.message}`; this.onStatus(); }
           } finally {
             if (this.deck !== deck) this.transitionCache.clear();
             this.transitionController = null;
@@ -249,7 +249,7 @@ export class Devices {
         deadline,
       ]);
     } catch (error) {
-      if (!controller.signal.aborted && this.deck === deck) this.info.error = `Beenden-Animation: ${error.message}`;
+      if (!controller.signal.aborted && this.deck === deck) this.info.error = `Shutdown animation: ${error.message}`;
     } finally {
       clearTimeout(timer);
       this.shutdownController = null;

@@ -65,7 +65,7 @@ test('Settings remain backwards compatible and both animation switches persist i
   assert.equal(animationEnabled(restored.settings, 'folder'), false);
   assert.equal(animationEnabled(restored.settings, 'reveal'), true);
   state.settings.iconRevealAnimation = 'false';
-  assert.throws(() => validateState(state), /Animationseinstellung/);
+  assert.throws(() => validateState(state), /animation setting/);
 });
 
 async function artwork(key, value) {

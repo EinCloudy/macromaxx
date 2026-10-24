@@ -20,16 +20,16 @@ export class Plugins {
     return this.items.map(({ entry, ...item }) => item);
   }
   async execute(id, config, signal) {
-    const plugin = this.items.find(p => p.id === id); if (!plugin) throw new Error('Plugin nicht gefunden.');
-    if (signal?.aborted) throw new Error('Abgebrochen');
+    const plugin = this.items.find(p => p.id === id); if (!plugin) throw new Error('Plugin not found.');
+    if (signal?.aborted) throw new Error('Canceled');
     return new Promise((resolve, reject) => {
       const child = fork(fileURLToPath(new URL('./plugin-worker.js', import.meta.url)), [plugin.entry], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'], execArgv: [] });
       this.children.add(child);
       const done = (error, result) => { clearTimeout(timer); signal?.removeEventListener('abort', abort); this.children.delete(child); child.removeAllListeners(); child.kill(); error ? reject(error) : resolve(result); };
-      const abort = () => done(new Error('Abgebrochen'));
-      const timer = setTimeout(() => done(new Error('Plugin-Zeitlimit überschritten (15 Sekunden).')), 15000);
+      const abort = () => done(new Error('Canceled'));
+      const timer = setTimeout(() => done(new Error('Plugin timed out (15 seconds).')), 15000);
       signal?.addEventListener('abort', abort, { once: true });
-      child.once('error', error => done(error)); child.once('exit', code => done(new Error(`Plugin wurde beendet (${code}).`)));
+      child.once('error', error => done(error)); child.once('exit', code => done(new Error(`Plugin exited (${code}).`)));
       child.once('message', msg => done(msg.error ? new Error(msg.error) : null, msg.result)); child.send({ config });
     });
   }

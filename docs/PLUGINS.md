@@ -1,47 +1,47 @@
 # MacroMaxx Plugins
 
-Plugins sind kleine JavaScript-Module. Öffne **Einstellungen → Plugins → Plugin-Ordner** und lege dort für jedes Plugin einen eigenen Ordner an. Danach **Plugins neu laden** und im Editor die Aktion **Plugin** auswählen.
+Plugins are small JavaScript modules. Open **Settings → Plugins → Plugin folder** and add a separate folder for each plugin. Click **Reload plugins**, then select the **Plugin** action in the editor.
 
-## Beispiel
+## Example
 
-`mein-plugin/manifest.json`:
+`my-plugin/manifest.json`:
 
 ```json
 {
-  "id": "mein-plugin",
-  "name": "Mein Plugin",
-  "description": "Eine eigene Aktion",
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "description": "A custom action",
   "main": "index.mjs",
   "fields": [
-    { "key": "name", "label": "Name", "default": "Welt" }
+    { "key": "name", "label": "Name", "default": "World" }
   ]
 }
 ```
 
-`mein-plugin/index.mjs`:
+`my-plugin/index.mjs`:
 
 ```js
 export async function execute(config, context) {
   return {
-    label: `Hi ${config.name || 'Welt'}!`,
+    label: `Hi ${config.name || 'World'}!`,
     color: '#86efac',
-    message: `Ausgeführt auf ${context.platform}`
+    message: `Executed on ${context.platform}`
   };
 }
 ```
 
-`id` besteht aus Kleinbuchstaben, Ziffern und Bindestrichen und muss eindeutig sein. Für ES-Module `.mjs` verwenden, alternativ `"type": "module"` in einer eigenen `package.json` setzen. Node.js-Module können importiert werden; weitere Abhängigkeiten müssen im Plugin-Ordner installiert werden.
+`id` must be unique and contain only lowercase letters, digits, and hyphens. Use `.mjs` for ES modules, or set `"type": "module"` in your own `package.json`. You can import Node.js modules; install additional dependencies in the plugin's folder.
 
-## Schnittstelle
+## API
 
-- `execute(config, context)` wird bei jedem Tastendruck in einem **neuen separaten Prozess** gestartet.
-- `config` enthält die JSON-Konfiguration der Aktion. `fields` stellt einfache Texteingaben dafür im Editor bereit; komplexere Werte können im JSON-Feld eingegeben werden.
-- `context.platform`: `linux`, `darwin` oder `win32`.
-- Das Ergebnis kann `label` (max. 80 Zeichen), `color` (`#rrggbb`) und `message` (Aktivitätsprotokoll) enthalten. Beschriftung/Farbe werden auf der Taste aktualisiert und gespeichert.
-- Fehler durch `throw new Error('…')` melden. Die Einstellung „Bei Fehler abbrechen“ wird auch für Plugins berücksichtigt.
-- Ein erneuter Druck auf eine laufende Aktionskette oder „Alle stoppen“ beendet den Plugin-Prozess. Maximale Laufzeit: 15 Sekunden.
-- Keine dauerhaften Hintergrunddienste oder selbstständig geöffneten Unterprozesse verwenden: Plugins sind einzelne Aktionen.
+- `execute(config, context)` runs in a **new, separate process** for each key press.
+- `config` contains the action's JSON configuration. `fields` creates simple text inputs in the editor; use the JSON field for more complex values.
+- `context.platform`: `linux`, `darwin`, or `win32`.
+- The result can include `label` (up to 80 characters), `color` (`#rrggbb`), and `message` (Activity log). Label/color changes update the key and are saved.
+- Report failures with `throw new Error('…')`. The **Stop on error** setting also applies to plugins.
+- Triggering a running chain again, or choosing **Stop all**, terminates the plugin process. Maximum runtime: 15 seconds.
+- Do not rely on persistent background services or independently spawned child processes: plugins are single actions.
 
-Plugins haben dieselben Dateisystem- und Netzwerkrechte wie dein Benutzerkonto. Die Prozessisolierung verhindert keine Zugriffe auf Benutzerdaten; sie dient der Stabilität. Es handelt sich um eine eigene MacroMaxx-Schnittstelle, nicht um Elgato-Plugin-Kompatibilität.
+Plugins have the same file-system and network permissions as your user account. Process isolation supports stability; it does not prevent access to user data. This is MacroMaxx's own API, not compatibility with Elgato plugins.
 
-Ein funktionsfähiges Beispiel befindet sich im Projekt unter `plugins/hello/`.
+A working example is included in `plugins/hello/`.

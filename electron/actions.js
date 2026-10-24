@@ -7,7 +7,7 @@ import OBSWebSocket from 'obs-websocket-js/json';
 const exec = promisify(execFile);
 async function limit(promise, ms = 10000) {
   let timer;
-  try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('OBS antwortet nicht (Zeitlimit überschritten).')), ms); })]); }
+  try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('OBS did not respond (request timed out).')), ms); })]); }
   finally { clearTimeout(timer); }
 }
 export class Actions {
@@ -22,7 +22,7 @@ export class Actions {
   }
   async connectOBS() {
     const { obsUrl, obsPassword } = this.getState().settings;
-    if (!/^wss?:\/\//.test(obsUrl)) throw new Error('OBS-Adresse muss mit ws:// oder wss:// beginnen.');
+    if (!/^wss?:\/\//.test(obsUrl)) throw new Error('The OBS address must start with ws:// or wss://.');
     await this.obs.disconnect();
     try { await limit(this.obs.connect(obsUrl, obsPassword || undefined)); }
     catch (e) { void this.obs.disconnect(); throw e; }
@@ -40,8 +40,8 @@ export class Actions {
     const controller = new AbortController(); this.running.set(key.id, controller); this.status();
     try {
       for (const action of actions) {
-        if (controller.signal.aborted) throw new Error('Abgebrochen');
-        try { const result = await this.run(action, controller.signal); if (result?.label || result?.color) this.updateKey(key.id, result); this.log('success', key.label, result?.message || `${action.type} ausgeführt`); }
+        if (controller.signal.aborted) throw new Error('Canceled');
+        try { const result = await this.run(action, controller.signal); if (result?.label || result?.color) this.updateKey(key.id, result); this.log('success', key.label, result?.message || `${action.type} executed`); }
         catch (error) { this.log('error', key.label, error.message); if (key.stopOnError !== false || controller.signal.aborted) break; }
       }
     } finally { this.running.delete(key.id); this.status(); }
@@ -49,10 +49,10 @@ export class Actions {
   async run(action, signal) {
     switch (action.type) {
       case 'hotkey': await this.input.hotkey(action.keys, action.mode || 'tap'); break;
-      case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Erlaubt sind http, https und mailto.'); await this.shell.openExternal(url.href); break; }
+      case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Only http, https, and mailto URLs are allowed.'); await this.shell.openExternal(url.href); break; }
       case 'app': {
         const target = String(action.path || '').replace(/^~(?=$|\/)/, os.homedir());
-        if (!target) throw new Error('Bitte Programm oder Datei auswählen.');
+        if (!target) throw new Error('Choose an application or file first.');
         const stat = await fs.stat(target);
         if (process.platform === 'linux' && target.endsWith('.desktop')) await exec('gio', ['launch', target], { signal });
         else if (process.platform === 'linux' && stat.isFile() && stat.mode & 0o111) {
@@ -63,7 +63,7 @@ export class Actions {
       case 'text': this.clipboard.writeText(String(action.text || '')); await this.input.hotkey(process.platform === 'darwin' ? 'CMD+V' : 'CTRL+V'); break;
       case 'media': {
         const key = { playpause: 'PLAYPAUSE', next: 'NEXT', previous: 'PREVIOUS', mute: 'MUTE', volumeup: 'VOLUMEUP', volumedown: 'VOLUMEDOWN' }[action.command];
-        if (!key) throw new Error('Unbekannter Medienbefehl');
+        if (!key) throw new Error('Unknown media command');
         if (process.platform === 'linux' && ['playpause', 'next', 'previous'].includes(action.command)) await exec('playerctl', [action.command === 'playpause' ? 'play-pause' : action.command], { signal });
         else if (process.platform === 'linux') {
           const args = action.command === 'mute' ? ['set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle'] : ['set-volume', '-l', '1.5', '@DEFAULT_AUDIO_SINK@', action.command === 'volumeup' ? '5%+' : '5%-'];
@@ -74,25 +74,25 @@ export class Actions {
         else await this.input.hotkey(key); break;
       }
       case 'webhook': {
-        const url = new URL(action.url); if (!['http:', 'https:'].includes(url.protocol)) throw new Error('HTTP- oder HTTPS-URL erforderlich.');
+        const url = new URL(action.url); if (!['http:', 'https:'].includes(url.protocol)) throw new Error('An HTTP or HTTPS URL is required.');
         const headers = JSON.parse(action.headers || '{}'); const method = action.method || 'POST';
         const response = await fetch(url, { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : action.body, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
         await response.body?.cancel(); if (!response.ok) throw new Error(`Webhook: HTTP ${response.status} ${response.statusText}`);
         return { message: `Webhook: HTTP ${response.status}` };
       }
-      case 'delay': { const ms = Number(action.ms); if (!Number.isFinite(ms) || ms < 0 || ms > 300000) throw new Error('Wartezeit muss zwischen 0 und 300000 ms liegen.'); await sleep(ms, undefined, { signal }); break; }
+      case 'delay': { const ms = Number(action.ms); if (!Number.isFinite(ms) || ms < 0 || ms > 300000) throw new Error('Delay must be between 0 and 300000 ms.'); await sleep(ms, undefined, { signal }); break; }
       case 'folder': this.navigate({ folder: true }); break;
       case 'profile': this.navigate({ profileId: action.profileId }); break;
       case 'obs': {
-        if (!this.obsState.connected) throw new Error('OBS ist nicht verbunden. Einstellungen → OBS Studio.');
+        if (!this.obsState.connected) throw new Error('OBS is not connected. Open Settings → OBS Studio.');
         if (action.command === 'scene') await this.callOBS('SetCurrentProgramScene', { sceneName: action.scene });
         else if (action.command === 'record') await this.callOBS('ToggleRecord');
         else if (action.command === 'stream') await this.callOBS('ToggleStream');
         else if (action.command === 'mute') await this.callOBS('ToggleInputMute', { inputName: action.input });
-        else throw new Error('Unbekannter OBS-Befehl.'); break;
+        else throw new Error('Unknown OBS command.'); break;
       }
       case 'plugin': return this.plugins.execute(action.pluginId, JSON.parse(action.config || '{}'), signal);
-      default: throw new Error('Unbekannte Aktion.');
+      default: throw new Error('Unknown action.');
     }
   }
   cancel() { for (const controller of this.running.values()) controller.abort(); }

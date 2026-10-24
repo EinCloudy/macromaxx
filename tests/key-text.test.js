@@ -14,7 +14,7 @@ test('Legacy labels retain size 16; custom sizes survive duplication and workspa
   assert.equal(validateState(JSON.parse(JSON.stringify(state))).profiles[0].keys[0].fontSize, 28);
   for (const invalid of [null, '20', 9, 33, 16.5, NaN]) {
     key.fontSize = invalid;
-    assert.throws(() => validateState(state), /Schriftgröße/);
+    assert.throws(() => validateState(state), /font size/);
   }
 });
 
@@ -61,7 +61,7 @@ test('Global size is backwards compatible, validated and preserved by workspace 
   assert.equal(globalFontSize(validateState(JSON.parse(JSON.stringify(state))).settings), 24);
   for (const invalid of [null, '24', 9, 33, 18.5]) {
     state.settings.defaultFontSize = invalid;
-    assert.throws(() => validateState(state), /globale Schriftgröße/);
+    assert.throws(() => validateState(state), /default font size/);
   }
 });
 

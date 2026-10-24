@@ -6,10 +6,10 @@ const exec = promisify(execFile);
 const symbols = { CTRL: 0xffe3, CONTROL: 0xffe3, SHIFT: 0xffe1, ALT: 0xffe9, META: 0xffeb, SUPER: 0xffeb, CMD: 0xffeb, COMMAND: 0xffeb, ENTER: 0xff0d, RETURN: 0xff0d, TAB: 0xff09, ESC: 0xff1b, ESCAPE: 0xff1b, SPACE: 32, BACKSPACE: 0xff08, DELETE: 0xffff, HOME: 0xff50, END: 0xff57, LEFT: 0xff51, UP: 0xff52, RIGHT: 0xff53, DOWN: 0xff54, PAGEUP: 0xff55, PAGEDOWN: 0xff56, PLAYPAUSE: 0x1008ff14, NEXT: 0x1008ff17, PREVIOUS: 0x1008ff16, MUTE: 0x1008ff12, VOLUMEUP: 0x1008ff13, VOLUMEDOWN: 0x1008ff11 };
 export function parseKeys(value) {
   const tokens = String(value).split('+').map(k => k.trim().toUpperCase()).filter(Boolean);
-  if (!tokens.length || tokens.length > 8) throw new Error('Ungültige Tastenkombination.');
+  if (!tokens.length || tokens.length > 8) throw new Error('Invalid key combination.');
   return tokens.map(key => {
     const code = symbols[key] || ({ PLUS: 43, MINUS: 45, COMMA: 44, PERIOD: 46, SLASH: 47 }[key]) || (/^F([1-9]|1[0-9]|2[0-4])$/.test(key) ? 0xffbd + Number(key.slice(1)) : key.length === 1 ? key.toLowerCase().codePointAt(0) : 0);
-    if (!code) throw new Error(`Unbekannte Taste: ${key}`);
+    if (!code) throw new Error(`Unknown key: ${key}`);
     return { key, code };
   });
 }
@@ -21,7 +21,7 @@ export class Input {
       python = await exec('python3', ['-c', 'import dbus; from gi.repository import GLib']).then(() => true).catch(() => false);
       xdotool = await exec('xdotool', ['--version']).then(() => true).catch(() => false);
     }
-    return { platform: process.platform, wayland: this.wayland, python, xdotool, ready: this.ready, backend: this.wayland ? 'Wayland / Desktop-Portal' : process.platform === 'linux' ? 'X11 / xdotool' : process.platform === 'win32' ? 'Windows Tastatureingabe' : 'macOS System Events' };
+    return { platform: process.platform, wayland: this.wayland, python, xdotool, ready: this.ready, backend: this.wayland ? 'Wayland / Desktop Portal' : process.platform === 'linux' ? 'X11 / xdotool' : process.platform === 'win32' ? 'Windows keyboard input' : 'macOS System Events' };
   }
   rpc(command, payload = {}) {
     if (!this.child) {
@@ -31,15 +31,15 @@ export class Input {
       });
       let stderr = '';
       this.child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
-      const stopped = error => { this.child = null; this.ready = false; for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(error?.message || stderr || 'Desktop-Portal beendet.')); } this.pending.clear(); this.onStatus(); };
+      const stopped = error => { this.child = null; this.ready = false; for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(error?.message || stderr || 'Desktop portal stopped.')); } this.pending.clear(); this.onStatus(); };
       this.child.on('error', stopped); this.child.on('exit', () => stopped());
       this.child.stdin.on('error', () => {});
     }
-    return new Promise((resolve, reject) => { const id = ++this.sequence; const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('Desktop-Portal antwortet nicht.')); }, 125000); this.pending.set(id, { resolve, reject, timer }); this.child.stdin.write(JSON.stringify({ id, command, ...payload }) + '\n'); });
+    return new Promise((resolve, reject) => { const id = ++this.sequence; const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('Desktop portal did not respond.')); }, 125000); this.pending.set(id, { resolve, reject, timer }); this.child.stdin.write(JSON.stringify({ id, command, ...payload }) + '\n'); });
   }
-  async setup() { if (this.wayland) { await this.rpc('setup'); this.ready = true; } else if (process.platform === 'darwin') { await exec('osascript', ['-e', 'tell application "System Events" to get name']); this.ready = true; } else { const d = await this.diagnostics(); if (process.platform === 'linux' && !d.xdotool) throw new Error('Bitte xdotool installieren (siehe Einrichtung).'); this.ready = true; } this.onStatus(); return this.diagnostics(); }
+  async setup() { if (this.wayland) { await this.rpc('setup'); this.ready = true; } else if (process.platform === 'darwin') { await exec('osascript', ['-e', 'tell application "System Events" to get name']); this.ready = true; } else { const d = await this.diagnostics(); if (process.platform === 'linux' && !d.xdotool) throw new Error('Install xdotool first (see setup instructions).'); this.ready = true; } this.onStatus(); return this.diagnostics(); }
   async hotkey(value, mode = 'tap') {
-    if (!['tap', 'down', 'up'].includes(mode)) throw new Error('Ungültiges Hotkey-Verhalten.');
+    if (!['tap', 'down', 'up'].includes(mode)) throw new Error('Invalid hotkey behavior.');
     const keys = parseKeys(value);
     await this.sendKeys(value, mode);
     if (mode === 'down') keys.forEach(k => this.held.add(k.key));
@@ -48,18 +48,18 @@ export class Input {
   async sendKeys(value, mode = 'tap') {
     const keys = parseKeys(value);
     if (this.wayland) {
-      if (!this.ready) throw new Error('Wayland-Tastatur noch nicht freigegeben. Bitte Einrichtung öffnen.');
+      if (!this.ready) throw new Error('Wayland keyboard permission has not been granted. Open Settings to set it up.');
       const down = keys.map(k => [k.code, 1]), up = [...keys].reverse().map(k => [k.code, 0]);
       return this.rpc('keys', { events: mode === 'down' ? down : mode === 'up' ? up : [...down, ...up] });
     }
     if (process.platform === 'linux') return exec('xdotool', [mode === 'down' ? 'keydown' : mode === 'up' ? 'keyup' : 'key', keys.map(k => ({ CTRL: 'ctrl', CONTROL: 'ctrl', SHIFT: 'shift', ALT: 'alt', META: 'super', SUPER: 'super', CMD: 'super', COMMAND: 'super', ENTER: 'Return', RETURN: 'Return', ESC: 'Escape', ESCAPE: 'Escape', SPACE: 'space', BACKSPACE: 'BackSpace', DELETE: 'Delete', LEFT: 'Left', UP: 'Up', RIGHT: 'Right', DOWN: 'Down', HOME: 'Home', END: 'End', TAB: 'Tab', PAGEUP: 'Page_Up', PAGEDOWN: 'Page_Down', PLUS: 'plus', MINUS: 'minus', COMMA: 'comma', PERIOD: 'period', SLASH: 'slash' }[k.key] || (k.key.length === 1 ? k.key.toLowerCase() : k.key))).join('+')]);
     if (process.platform === 'darwin') {
       const modifiers = keys.slice(0, -1).map(k => ({ CTRL: 'control down', CONTROL: 'control down', ALT: 'option down', SHIFT: 'shift down', CMD: 'command down', META: 'command down', SUPER: 'command down' }[k.key]));
-      if (modifiers.some(m => !m)) throw new Error('Ungültige macOS-Modifikatortaste.');
-      if (mode !== 'tap') throw new Error('Gedrückt halten wird unter macOS nicht unterstützt.');
+      if (modifiers.some(m => !m)) throw new Error('Invalid macOS modifier key.');
+      if (mode !== 'tap') throw new Error('Holding keys is not supported on macOS.');
       const last = keys.at(-1).key;
       const codes = { ENTER: 36, TAB: 48, SPACE: 49, BACKSPACE: 51, ESC: 53, DELETE: 117, LEFT: 123, RIGHT: 124, DOWN: 125, UP: 126, F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97, F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111 };
-      if (!codes[last] && last.length !== 1) throw new Error('Diese Taste wird unter macOS noch nicht unterstützt.');
+      if (!codes[last] && last.length !== 1) throw new Error('This key is not yet supported on macOS.');
       const key = codes[last] ? `key code ${codes[last]}` : `keystroke ${JSON.stringify(last.toLowerCase())}`;
       return exec('osascript', ['-e', `tell application "System Events" to ${key}${modifiers.length ? ' using {' + modifiers.join(',') + '}' : ''}`]);
     }

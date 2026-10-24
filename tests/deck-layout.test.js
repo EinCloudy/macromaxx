@@ -70,7 +70,7 @@ test('Back positions survive save/import and folder duplication; malformed posit
   assert.equal(duplicateKey(folder).backPosition, 12);
   for (const invalid of [-1, 128, 1.5, '12', null]) {
     folder.backPosition = invalid;
-    assert.throws(() => validateState(state), /Zurück-Taste/);
+    assert.throws(() => validateState(state), /Back key/);
   }
 });
 

@@ -8,8 +8,8 @@ export class Store {
     try { return validateState(JSON.parse(await fs.readFile(this.file, 'utf8'))); }
     catch (error) {
       if (error.code === 'ENOENT') return initialState();
-      try { const recovered = validateState(JSON.parse(await fs.readFile(this.file + '.bak', 'utf8'))); this.recovery = 'Workspace aus Sicherung wiederhergestellt.'; return recovered; }
-      catch { throw new Error(`Workspace konnte nicht gelesen werden: ${error.message}. Datei: ${this.file}`); }
+      try { const recovered = validateState(JSON.parse(await fs.readFile(this.file + '.bak', 'utf8'))); this.recovery = 'Workspace restored from backup.'; return recovered; }
+      catch { throw new Error(`Could not read workspace: ${error.message}. File: ${this.file}`); }
     }
   }
   save(state) {

@@ -18,13 +18,13 @@ export function deckSlots(state, path = [], count = 15) {
 }
 
 export function swapDeckSlots(state, path, from, to, count = 15) {
-  if (![from, to].every(index => Number.isInteger(index) && index >= 0 && index < count)) throw new Error('Ungültige Tastenposition.');
+  if (![from, to].every(index => Number.isInteger(index) && index >= 0 && index < count)) throw new Error('Invalid key position.');
   if (from === to) return;
   const slots = deckSlots(state, path, count);
   const keys = visibleKeys(state, path);
   if (slots[from].isBack || slots[to].isBack) {
     const folder = currentFolder(state, path);
-    if (!folder) throw new Error('Ordner nicht gefunden.');
+    if (!folder) throw new Error('Folder not found.');
     [slots[from], slots[to]] = [slots[to], slots[from]];
     folder.backPosition = slots.findIndex(slot => slot.isBack);
     const visible = slots.filter(slot => !slot.isBack).map(slot => slot.key);

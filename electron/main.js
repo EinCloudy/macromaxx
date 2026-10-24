@@ -24,10 +24,10 @@ const publishState = () => emit({ type: 'state', state, folderPath });
 async function persist() { await store.save(state); }
 async function navigate(target) {
   const previousPath = [...folderPath];
-  if (target.profileId) { if (!state.profiles.some(p => p.id === target.profileId)) throw new Error('Profil nicht gefunden.'); state.activeProfileId = target.profileId; folderPath = []; await persist(); }
+  if (target.profileId) { if (!state.profiles.some(p => p.id === target.profileId)) throw new Error('Profile not found.'); state.activeProfileId = target.profileId; folderPath = []; await persist(); }
   else if (target.up) folderPath.pop();
   else if (Array.isArray(target.path)) {
-    if (target.path.some(i => !Number.isInteger(i) || i < 0 || i > 127) || target.path.length > 12) throw new Error('Ungültiger Ordnerpfad.');
+    if (target.path.some(i => !Number.isInteger(i) || i < 0 || i > 127) || target.path.length > 12) throw new Error('Invalid folder path.');
     folderPath = target.path;
   }
   publishState(); status();
@@ -37,7 +37,7 @@ async function navigate(target) {
 }
 async function execute(index, long = false) {
   if (quitting) return;
-  if (!Number.isInteger(index) || index < 0 || index >= devices.info.count) throw new Error('Ungültige Taste.');
+  if (!Number.isInteger(index) || index < 0 || index >= devices.info.count) throw new Error('Invalid key.');
   const slot = deckSlots(state, folderPath, devices.info.count)[index];
   if (slot.isBack) return navigate({ up: true });
   const key = slot.key; if (!key) return;
@@ -46,7 +46,7 @@ async function execute(index, long = false) {
 }
 function updateKey(id, change) {
   function visit(keys) { for (const key of keys) if (key) { if (key.id === id) { if (typeof change.label === 'string') key.label = change.label.slice(0, 80); if (/^#[0-9a-f]{6}$/i.test(change.color)) key.color = change.color; } visit(key.children || []); } }
-  state.profiles.forEach(p => visit(p.keys)); publishState(); persist().catch(e => log('error', 'Speichern', e.message));
+  state.profiles.forEach(p => visit(p.keys)); publishState(); persist().catch(e => log('error', 'Save', e.message));
 }
 async function autostart(enabled) {
   if (process.platform !== 'linux') { app.setLoginItemSettings({ openAtLogin: enabled }); return; }
@@ -66,17 +66,17 @@ else {
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => slot.key), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState), getSettings: () => state.settings,
       onDown: index => { pressed.set(index, Date.now()); emit({ type: 'press', index, down: true }); },
-      onUp: index => { const start = pressed.get(index); pressed.delete(index); emit({ type: 'press', index, down: false }); if (start) execute(index, Date.now() - start > 600).catch(e => log('error', 'Taste', e.message)); }
+      onUp: index => { const start = pressed.get(index); pressed.delete(index); emit({ type: 'press', index, down: false }); if (start) execute(index, Date.now() - start > 600).catch(e => log('error', 'Key', e.message)); }
     });
     actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
       save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) folderPath = []; state = next; await devices.render(); return true; },
       execute: (_, index, long) => execute(index, long), navigate: (_, target) => navigate(target),
-      images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Ungültige Bilder.'); return devices.setImages(images); },
-      diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup(); } catch (e) { log('error', 'Tastatureinrichtung', e.message); throw e; } },
+      images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
+      diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup(); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
       installUdev: async () => {
-        if (process.platform !== 'linux') throw new Error('Nur für Linux.');
+        if (process.platform !== 'linux') throw new Error('Available on Linux only.');
         const rule = 'SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0fd9", TAG+="uaccess"\n';
         const source = path.join(app.getPath('temp'), '70-macromaxx-streamdeck.rules'); await fs.writeFile(source, rule);
         const script = path.join(here, 'install-udev.sh').replace(/app\.asar\//, 'app.asar.unpacked/');
@@ -84,19 +84,19 @@ else {
       },
       connectOBS: () => actions.connectOBS(), disconnectOBS: () => actions.obs.disconnect(),
       pickFile: async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'] }); return result.canceled ? null : result.filePaths[0]; },
-      pickImage: async () => { const r = await dialog.showOpenDialog(win, { filters: [{ name: 'Bilder', extensions: ['png', 'jpg', 'jpeg', 'webp'] }], properties: ['openFile'] }); if (r.canceled) return null; const sharp = (await import('sharp')).default; const buffer = await sharp(r.filePaths[0], { limitInputPixels: 20000000 }).resize(256, 256, { fit: 'cover' }).png().toBuffer(); return 'data:image/png;base64,' + buffer.toString('base64'); },
+      pickImage: async () => { const r = await dialog.showOpenDialog(win, { filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }], properties: ['openFile'] }); if (r.canceled) return null; const sharp = (await import('sharp')).default; const buffer = await sharp(r.filePaths[0], { limitInputPixels: 20000000 }).resize(256, 256, { fit: 'cover' }).png().toBuffer(); return 'data:image/png;base64,' + buffer.toString('base64'); },
       exportWorkspace: async () => { const r = await dialog.showSaveDialog(win, { defaultPath: 'MacroMaxx-Workspace.json', filters: [{ name: 'MacroMaxx Workspace', extensions: ['json'] }] }); if (r.canceled) return false; await fs.writeFile(r.filePath, JSON.stringify(state, null, 2), { mode: 0o600 }); return true; },
       importWorkspace: async () => {
         const r = await dialog.showOpenDialog(win, { filters: [{ name: 'MacroMaxx Workspace', extensions: ['json'] }], properties: ['openFile'] }); if (r.canceled) return null;
-        const stat = await fs.stat(r.filePaths[0]); if (stat.size > 25000000) throw new Error('Datei zu groß (max. 25 MB).');
+        const stat = await fs.stat(r.filePaths[0]); if (stat.size > 25000000) throw new Error('File too large (maximum 25 MB).');
         const imported = validateState(JSON.parse(await fs.readFile(r.filePaths[0], 'utf8')));
-        const confirm = await dialog.showMessageBox(win, { type: 'question', message: 'Aktuellen Workspace ersetzen?', detail: 'Die vorhandene Version bleibt als Sicherung erhalten. Importierte Aktionen werden erst durch Tastendruck ausgeführt.', buttons: ['Abbrechen', 'Importieren'], defaultId: 0, cancelId: 0 }); if (confirm.response !== 1) return null;
+        const confirm = await dialog.showMessageBox(win, { type: 'question', message: 'Replace the current workspace?', detail: 'The current version will be kept as a backup. Imported actions only run when a key is triggered.', buttons: ['Cancel', 'Import'], defaultId: 0, cancelId: 0 }); if (confirm.response !== 1) return null;
         imported.settings.autostart = state.settings.autostart; await store.save(imported); state = imported; folderPath = []; publishState(); status(); await devices.render(); return state;
       },
       plugins: () => plugins.scan(), openPlugins: () => shell.openPath(path.join(app.getPath('userData'), 'plugins')),
       cancel: async () => { actions.cancel(); await input.releaseAll(); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)
     };
-    for (const [name, handler] of Object.entries(handlers)) ipcMain.handle('app:' + name, (event, ...args) => { if (event.sender !== win?.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Unzulässiger Aufruf.'); return handler(event, ...args); });
+    for (const [name, handler] of Object.entries(handlers)) ipcMain.handle('app:' + name, (event, ...args) => { if (event.sender !== win?.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Unauthorized request.'); return handler(event, ...args); });
     win = new BrowserWindow({ width: 1500, height: 960, minWidth: 1120, minHeight: 740, backgroundColor: '#101114', title: 'MacroMaxx', autoHideMenuBar: true, webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (event, url) => { if (url !== win.webContents.getURL()) event.preventDefault(); });
@@ -104,10 +104,10 @@ else {
     // Linux tray implementations reliably accept PNG, rather than SVG buffers.
     const sharp = (await import('sharp')).default;
     const png = await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="16" fill="#ad92ff"/><path d="M16 44V20l16 16 16-16v24" fill="none" stroke="#15121c" stroke-width="6"/></svg>')).png().toBuffer();
-    tray = new Tray(nativeImage.createFromBuffer(png)); tray.setToolTip('MacroMaxx'); tray.setContextMenu(Menu.buildFromTemplate([{ label: 'MacroMaxx öffnen', click: () => win.show() }, { type: 'separator' }, { label: 'Beenden', click: () => { quitting = true; app.quit(); } }])); tray.on('click', () => win.show());
+    tray = new Tray(nativeImage.createFromBuffer(png)); tray.setToolTip('MacroMaxx'); tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open MacroMaxx', click: () => win.show() }, { type: 'separator' }, { label: 'Quit', click: () => { quitting = true; app.quit(); } }])); tray.on('click', () => win.show());
     win.on('close', event => { if (!quitting && state.settings.closeToTray) { event.preventDefault(); win.hide(); } });
     if (dev) await win.loadURL('http://127.0.0.1:5173'); else await win.loadFile(path.join(here, '../dist/index.html'));
-    devices.start(); if (store.recovery) log('info', 'Wiederherstellung', store.recovery);
+    devices.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
     quitting = true;
