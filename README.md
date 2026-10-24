@@ -48,6 +48,12 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 ## Actions
 
+### Linux audio and microphone holds
+
+**Audio & microphone** uses `pactl` with PipeWire-Pulse or PulseAudio. Select a named device or the current system default, toggle mute, set/step volume, select the default input/output, or move all streams of a selected application to an output. External mute/volume changes update the deck indicator. **Settings → Linux audio** lists connected devices and their live state.
+
+For **Push-to-talk** or **Push-to-mute**, put the audio action first on the key. It takes effect on physical key-down and restores the previous microphone state on release, Stop all, or normal app shutdown. Overlapping holds are coordinated. Other actions on that hold key are not executed. No Wayland keyboard permission is needed. Install `pulseaudio-utils` (Debian/Ubuntu) or `libpulse` (Arch) for pactl.
+
 - **Hotkey:** record a combination or enter `CTRL+SHIFT+M`. Function keys, arrow keys, `META`, `SPACE`, `ENTER`, `PLUS`, `MINUS`, and others are supported. Separate hold/release actions are available on Linux and Windows. Held keys are released during normal shutdown and by **Stop all**.
 - **Website:** open an HTTP(S) or mailto URL in its default application.
 - **Open application:** choose an absolute application or file path. On Linux, executables launch directly, `.desktop` files use `gio launch`, and other files/directories open in their default application. `~` expands to your home directory.

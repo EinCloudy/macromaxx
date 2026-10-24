@@ -8,6 +8,8 @@ import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
+import { AudioEditor } from './linux-actions.jsx';
+import { AudioSettings } from './linux-settings.jsx';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
 const clone = value => structuredClone(value);
@@ -52,9 +54,9 @@ export default function App() {
   const backSelected = !!selectedSlot?.isBack;
   const key = backSelected ? null : selectedSlot?.key;
   const profile = state?.profiles.find(p => p.id === state.activeProfileId);
-  const activeKey = k => isKeyActive(k, status.obs);
+  const activeKey = k => isKeyActive(k, status.obs, status);
   const displayKeys = slots.map(slot => slot.key);
-  const imageBank = state ? collectVisuals(state, status.obs) : [];
+  const imageBank = state ? collectVisuals(state, status.obs, status) : [];
   const imageBankIdentity = JSON.stringify(imageBank.map(entry => entry.signature));
   useEffect(() => {
     if (!state) return;
@@ -221,6 +223,7 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
       {select('mode', 'Behavior', [['tap', 'Press & release'], ['down', 'Hold down'], ['up', 'Release']])}
     </>}
     {action.type === 'url' && input('url', 'URL', 'https://…')}
+    {action.type === 'audio' && <AudioEditor action={action} update={update} status={status} />}
     {action.type === 'app' && <>{input('path', 'Application or file', '/path/to/application')}<Button className="small" icon="FolderOpen" onClick={() => perform(async () => { const path = await api.pickFile(); if (path) update({ path }); })}>Choose file</Button></>}
     {action.type === 'text' && <>{input('text', 'Text', 'Your text …', true)}<p className="muted-text">Copies the text to the clipboard and pastes it with Ctrl+V (Cmd+V on macOS).</p></>}
     {action.type === 'media' && select('command', 'Command', [['playpause', 'Play / Pause'], ['next', 'Next track'], ['previous', 'Previous track'], ['mute', 'Mute'], ['volumeup', 'Volume up'], ['volumedown', 'Volume down']])}
@@ -246,6 +249,7 @@ function Settings({ state, status, diagnostics, plugins, change, perform, flush,
     <div className="settings-grid">
       <AnimationSettings state={state} change={change} />
       <TypographySettings state={state} change={change} />
+      <AudioSettings status={status} perform={perform} />
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Keyboard" /></span><div><h3>Keyboard & devices</h3><p>{diagnostics?.backend || 'Checking your system …'}</p></div><span className={`connection ${status.inputReady ? 'connected' : ''}`}><i />{status.inputReady ? 'Ready' : 'Set up'}</span></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}

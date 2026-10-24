@@ -11,8 +11,8 @@ async function limit(promise, ms = 10000) {
   finally { clearTimeout(timer); }
 }
 export class Actions {
-  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status }) {
-    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status });
+  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio }) {
+    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio });
     this.running = new Map(); this.obs = new OBSWebSocket(); this.obsState = { connected: false, scene: '', recording: false, streaming: false, inputs: [], scenes: [], muted: {} };
     this.obs.on('ConnectionClosed', () => { this.obsState.connected = false; status(); });
     this.obs.on('CurrentProgramSceneChanged', e => { this.obsState.scene = e.sceneName; status(); });
@@ -49,6 +49,7 @@ export class Actions {
   async run(action, signal) {
     switch (action.type) {
       case 'hotkey': await this.input.hotkey(action.keys, action.mode || 'tap'); break;
+      case 'audio': if (!this.audio) throw new Error('Audio service unavailable.'); await this.audio.execute(action); break;
       case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Only http, https, and mailto URLs are allowed.'); await this.shell.openExternal(url.href); break; }
       case 'app': {
         const target = String(action.path || '').replace(/^~(?=$|\/)/, os.homedir());
