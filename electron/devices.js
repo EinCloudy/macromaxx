@@ -15,6 +15,7 @@ export class Devices {
     this.images = new Map();
     this.displayed = new Map();
     this.transitionCache = new Map();
+    this.waveCache = new Map();
     this.renderQueue = Promise.resolve();
     this.renderRevision = 0;
     this.startupPlayed = false;
@@ -73,6 +74,7 @@ export class Devices {
     this.sent.clear();
     this.displayed.clear();
     this.transitionCache.clear();
+    this.waveCache.clear();
     if (deck) { deck.removeAllListeners(); await deck.close().catch(() => {}); }
     this.info.connected = false;
     this.onStatus();
@@ -97,7 +99,7 @@ export class Devices {
       try {
         if (this.deck !== deck || controller.signal.aborted) return;
         await deck.setBrightness(this.getBrightness());
-        await playStartupWave(deck, this.controls, { signal: controller.signal });
+        await playStartupWave(deck, this.controls, { signal: controller.signal, preparedCache: this.waveCache });
         if (!controller.signal.aborted && !this.pendingTransition && animationEnabled(this.getSettings(), 'reveal')) {
           this.pendingTransition = { kind: 'reveal' };
         }
@@ -239,10 +241,11 @@ export class Devices {
       // An optional visual effect must not indefinitely delay shutdown if a
       // device stops replying. Normal rendering has already been stopped.
       const deadline = new Promise(resolve => {
-        timer = setTimeout(() => { controller.abort(); resolve(); }, 4000);
+        const budget = 4000 + Math.max(0, (this.controls?.length || 0) - 15) * 150;
+        timer = setTimeout(() => { controller.abort(); resolve(); }, budget);
       });
       await Promise.race([
-        playStartupWave(deck, this.controls || [], { reverse: true, signal: controller.signal }),
+        playStartupWave(deck, this.controls || [], { reverse: true, signal: controller.signal, preparedCache: this.waveCache }),
         deadline,
       ]);
     } catch (error) {
@@ -253,7 +256,7 @@ export class Devices {
       this.info.closing = false;
       this.onStatus();
       if (this.deck === deck) {
-        await deck.resetToLogo().catch(() => {});
+        await deck.clearPanel().catch(() => {});
         await this.disconnect();
       }
     }

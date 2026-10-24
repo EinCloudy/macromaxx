@@ -10,14 +10,21 @@ function grid(rows, columns) {
   }));
 }
 
-test('Shutdown uses the exact reversed startup frames on both 15-key and 32-key decks', () => {
+test('Shutdown reverses startup and replaces its hard centre cut with a gradual fade on 15-key and 32-key decks', () => {
   for (const [rows, columns] of [[3, 5], [4, 8]]) {
     const controls = grid(rows, columns);
     const startup = createWavePlan(controls);
     const shutdown = createWavePlan(controls, { reverse: true });
-    assert.deepEqual(shutdown.frames, [...startup.frames].reverse());
+    assert.deepEqual(shutdown.frames.slice(0, startup.frames.length - 1), [...startup.frames].reverse().slice(0, -1));
     assert.deepEqual(shutdown.center, startup.center);
     assert.ok(shutdown.frames.at(-1).every(entry => entry.level === 0));
+    assert.ok(shutdown.frames.at(-1).every(entry => entry.fade === 0));
+    const centerIndex = rows === 3 ? 7 : 11;
+    const tail = shutdown.frames.slice(-9).map(frame => frame[centerIndex].level);
+    assert.ok(tail[0] > 0);
+    assert.equal(tail.at(-1), 0);
+    assert.ok(new Set(tail).size >= 5, 'the central key has multiple visible fade steps');
+    assert.ok(tail.every((level, index) => !index || level <= tail[index - 1]));
   }
 });
 
@@ -33,7 +40,24 @@ test('Reverse playback lights the outer keys before the middle and finishes dark
   };
   assert.ok(peak(0) < peak(1));
   assert.equal(peak(0), peak(2));
-  for (let index = 0; index < 3; index++) assert.equal(sent.filter(packet => packet.index === index).at(-1).value, 13);
+  for (let index = 0; index < 3; index++) assert.equal(sent.filter(packet => packet.index === index).at(-1).value, 0);
+  const centralFade = sent.filter(packet => packet.index === 1).slice(-8).map(packet => packet.value);
+  assert.ok(new Set(centralFade).size >= 5);
+  assert.ok(centralFade.every((value, index) => !index || value < centralFade[index - 1]));
+});
+
+test('Shutdown reuses startup packets and only prepares the additional fade frames', async () => {
+  const preparedCache = new Map(), controls = grid(1, 3);
+  let clock = 0, preparations = 0;
+  const deck = {
+    prepareFillKeyBuffer: async (index, buffer) => { preparations++; return { index, buffer }; },
+    sendPreparedBuffer: async () => {},
+  };
+  const options = { preparedCache, now: () => clock, wait: async ms => { clock += ms; } };
+  await playStartupWave(deck, controls, options);
+  const before = preparations;
+  await playStartupWave(deck, controls, { ...options, reverse: true });
+  assert.equal(preparations - before, controls.length * 8);
 });
 
 function deviceWithDeck(extra = {}) {
@@ -46,7 +70,8 @@ function deviceWithDeck(extra = {}) {
     sendPreparedBuffer: async packet => { events.push(['wave', packet.index, packet.buffer[0]]); },
     fillKeyBuffer: async () => { events.push(['profile']); },
     setBrightness: async () => {},
-    resetToLogo: async () => { events.push(['logo']); },
+    clearPanel: async () => { events.push(['clear']); },
+    resetToLogo: async () => { assert.fail('the logo must not reappear after fading to black'); },
     removeAllListeners: () => {},
     close: async () => { events.push(['close']); },
     ...extra,
@@ -62,7 +87,7 @@ test('Repeated close requests play one end wave, stop normal renders and release
   await closing;
   assert.ok(events.filter(event => event[0] === 'wave').length > 3, 'end wave remains active even when optional effects are disabled');
   assert.equal(events.filter(event => event[0] === 'profile').length, 0);
-  assert.deepEqual(events.slice(-2), [['logo'], ['close']]);
+  assert.deepEqual(events.slice(-2), [['clear'], ['close']]);
   assert.equal(device.info.connected, false);
   assert.equal(device.info.closing, false);
   assert.equal(device.info.error, '');
@@ -73,7 +98,7 @@ test('Repeated close requests play one end wave, stop normal renders and release
 test('An animation write error still closes the device cleanly', async () => {
   const { device, events } = deviceWithDeck({ sendPreparedBuffer: async () => { throw new Error('USB write failed'); } });
   await device.close();
-  assert.deepEqual(events, [['logo'], ['close']]);
+  assert.deepEqual(events, [['clear'], ['close']]);
   assert.match(device.info.error, /USB write failed/);
   assert.equal(device.info.closing, false);
 });
@@ -93,7 +118,7 @@ test('Unresponsive animation preparation is bounded and does not prevent device 
   const start = performance.now();
   await device.close();
   assert.ok(performance.now() - start < 5500);
-  assert.deepEqual(events, [['logo'], ['close']]);
+  assert.deepEqual(events, [['clear'], ['close']]);
 });
 
 test('Quitting without connected hardware needs no animation', async () => {
