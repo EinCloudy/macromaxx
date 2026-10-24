@@ -7,5 +7,6 @@ export const api = window.macro || {
   subscribe: () => () => {}, images: async () => {}, plugins: async () => [{ id: 'hello', name: 'Hello, MacroMaxx!', fields: [{ key: 'name', label: 'Your name', default: 'World' }] }],
   diagnostics: async () => ({ platform: 'browser', backend: 'Browser preview', wayland: false }),
   refreshAudio: unavailable,
+  reconnect: unavailable,
   execute: unavailable, setupInput: unavailable, installUdev: unavailable, connectOBS: unavailable, disconnectOBS: unavailable, importWorkspace: unavailable, exportWorkspace: unavailable, pickFile: unavailable, pickImage: unavailable, openPlugins: unavailable, selectDevice: unavailable, cancel: async () => {}, quit: unavailable,
 };

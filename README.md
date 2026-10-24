@@ -65,6 +65,8 @@ For **Push-to-talk** or **Push-to-mute**, put the audio action first on the key.
 
 ## Platform setup
 
+USB connections are restored by serial number when a dock or hidraw path changes. Suspend releases the deck without playing a shutdown wave; resume reopens it and restores cached artwork without replaying startup. Locking, suspending, or disconnecting releases microphone holds and synthetic held keys. Use **Settings → Keyboard & devices → Reconnect Stream Deck** for a manual rescan. Wayland sessions are reset after resume so stale permissions are not reported as ready.
+
 ### Linux / KDE Wayland
 
 Open **Settings → Keyboard & devices → Allow keyboard input** and confirm the native desktop dialog. The app requests keyboard access only. Permission applies to the current app session and can be revoked by the desktop.

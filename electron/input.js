@@ -26,12 +26,13 @@ export class Input {
   rpc(command, payload = {}) {
     if (!this.child) {
       this.child = spawn('python3', [fileURLToPath(new URL('./portal.py', import.meta.url)).replace(/app\.asar\//, 'app.asar.unpacked/')], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const child = this.child;
       createInterface({ input: this.child.stdout }).on('line', line => {
         try { const msg = JSON.parse(line); if (msg.event === 'closed') { this.ready = false; this.onStatus(); } const pending = this.pending.get(msg.id); if (pending) { clearTimeout(pending.timer); this.pending.delete(msg.id); msg.error ? pending.reject(new Error(msg.error)) : pending.resolve(msg.result); } } catch { /* non-protocol output */ }
       });
       let stderr = '';
       this.child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
-      const stopped = error => { this.child = null; this.ready = false; for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(error?.message || stderr || 'Desktop portal stopped.')); } this.pending.clear(); this.onStatus(); };
+      const stopped = error => { if (this.child !== child) return; this.child = null; this.ready = false; for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(error?.message || stderr || 'Desktop portal stopped.')); } this.pending.clear(); this.onStatus(); };
       this.child.on('error', stopped); this.child.on('exit', () => stopped());
       this.child.stdin.on('error', () => {});
     }
@@ -71,5 +72,16 @@ export class Input {
     return exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class MMKeys{[DllImport("user32.dll")]public static extern void keybd_event(byte b,byte s,uint f,UIntPtr e);}';${mode === 'down' ? down : mode === 'up' ? up : down + up}`], { windowsHide: true });
   }
   async releaseAll() { for (const key of [...this.held].reverse()) await this.hotkey(key, 'up').catch(() => {}); this.held.clear(); }
+  async reset() {
+    await this.releaseAll();
+    const child = this.child;
+    for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error('Keyboard session reset.')); } this.pending.clear();
+    if (child) await new Promise(resolve => {
+      const timer = setTimeout(() => { child.kill(); resolve(); }, 1500);
+      child.once('exit', () => { clearTimeout(timer); resolve(); }); child.stdin.end();
+    });
+    if (this.child === child) this.child = null;
+    this.ready = false; this.onStatus();
+  }
   async close() { await this.releaseAll(); this.child?.kill(); }
 }

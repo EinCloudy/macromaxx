@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage, powerMonitor } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,12 @@ const status = () => emit({ type: 'status', status: getStatus() });
 const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
+function releasePhysicalKeys() {
+  for (const index of pressed.keys()) emit({ type: 'press', index, down: false });
+  pressed.clear(); actions?.cancel();
+  void audio?.releaseAll().catch(e => log('error', 'Microphone release', e.message));
+  void input?.releaseAll().catch(e => log('error', 'Keyboard release', e.message));
+}
 async function persist() { await store.save(state); }
 async function navigate(target) {
   const previousPath = [...folderPath];
@@ -66,7 +72,7 @@ else {
     input = new Input(status);
     audio = new Audio(status);
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
-    devices = new Devices({ onStatus: status, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => slot.key), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state }), getSettings: () => state.settings,
+    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => slot.key), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state }), getSettings: () => state.settings,
       onDown: index => {
         if (pressed.has(index)) return;
         const key = deckSlots(state, folderPath, devices.info.count)[index]?.key;
@@ -91,6 +97,7 @@ else {
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
       diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup(); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
       refreshAudio: () => audio.refresh(),
+      reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); await audio.refresh(); },
       installUdev: async () => {
         if (process.platform !== 'linux') throw new Error('Available on Linux only.');
         const rule = 'SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0fd9", TAG+="uaccess"\n';
@@ -124,6 +131,11 @@ else {
     win.on('close', event => { if (!quitting && state.settings.closeToTray) { event.preventDefault(); win.hide(); } });
     if (dev) await win.loadURL('http://127.0.0.1:5173'); else await win.loadFile(path.join(here, '../dist/index.html'));
     devices.start(); audio.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
+    powerMonitor.on('suspend', () => { releasePhysicalKeys(); devices.suspend().catch(e => log('error', 'Suspend', e.message)); });
+    powerMonitor.on('lock-screen', releasePhysicalKeys);
+    powerMonitor.on('resume', () => {
+      Promise.allSettled([devices.resume(), audio.refresh(), input.reset()]).then(status);
+    });
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
     quitting = true;

@@ -7,8 +7,8 @@ import { playIconTransition } from './icon-transitions.js';
 import { resolvedKeyFont } from '../shared/key-text.js';
 
 export class Devices {
-  constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}) }) {
-    Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive, getSettings });
+  constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}), onDisconnect = () => {}, listDevices = listStreamDecks, openDevice = openStreamDeck }) {
+    Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive, getSettings, onDisconnect, listDevices, openDevice });
     this.info = { connected: false, name: 'Virtual Stream Deck', rows: 3, columns: 5, count: 15, error: '' };
     this.cache = new Map();
     this.sent = new Map();
@@ -24,24 +24,31 @@ export class Devices {
 
   start() { this.scan(); this.timer = setInterval(() => this.scan(), 3000); }
 
-  async scan() {
-    if (this.scanning || this.stopping) return;
-    this.scanning = true;
+  scan() {
+    if (this.stopping || this.suspended) return Promise.resolve();
+    if (this.scanPromise) return this.scanPromise;
+    this.scanPromise = this.scanDevices().finally(() => { this.scanPromise = null; });
+    return this.scanPromise;
+  }
+
+  async scanDevices() {
     try {
-      const devices = await listStreamDecks();
-      if (this.stopping) return;
+      const devices = await this.listDevices();
+      if (this.stopping || this.suspended) return;
       if (this.deck && !devices.some(d => d.path === this.path)) await this.disconnect();
-      this.available = devices.map(d => ({ path: d.path, name: d.modelInfo.name }));
+      this.available = devices.map(d => ({ path: d.path, name: d.modelInfo.name, serial: d.serialNumber }));
       if (!this.deck && devices.length) {
-        const target = devices.find(d => d.path === this.preferred) || devices[0];
-        const opened = await openStreamDeck(target.path);
-        if (this.stopping) { await opened.close().catch(() => {}); return; }
+        const target = this.preferredSerial ? devices.find(d => d.serialNumber === this.preferredSerial) : this.preferred ? devices.find(d => d.path === this.preferred) : devices[0];
+        if (!target) { this.info.error = 'Waiting for the selected Stream Deck to reconnect.'; this.onStatus(); return; }
+        const opened = await this.openDevice(target.path);
+        if (this.stopping || this.suspended) { await opened.close().catch(() => {}); return; }
         this.deck = opened;
         this.path = target.path;
         const controls = this.deck.modelInfo.controls.filter(c => c.type === 'button');
         this.controls = controls;
         const serial = await opened.getSerialNumber();
-        if (this.stopping || this.deck !== opened) return;
+        if (this.stopping || this.suspended || this.deck !== opened) return;
+        this.preferredSerial = serial;
         this.info = {
           connected: true, name: this.deck.modelInfo.name, serial,
           count: controls.length, rows: Math.max(...controls.map(c => c.row)) + 1,
@@ -56,12 +63,24 @@ export class Devices {
         await this.startupAnimation();
       } else if (!devices.length && this.info.error) { this.info.error = ''; this.onStatus(); }
     } catch (error) {
+      if (this.deck) await this.disconnect();
       const message = `USB access failed: ${error.message}`;
       if (this.info.error !== message) { this.info.error = message; this.onStatus(); }
-    } finally { this.scanning = false; }
+    }
   }
 
-  async select(devicePath) { this.preferred = devicePath; await this.disconnect(); await this.scan(); }
+  async select(devicePath) { this.preferred = devicePath; this.preferredSerial = this.available?.find(d => d.path === devicePath)?.serial; await this.disconnect(); await this.scanPromise; await this.scan(); }
+
+  async suspend() {
+    this.suspended = true;
+    this.skipStartupAnimation(); this.transitionController?.abort();
+    await this.scanPromise?.catch(() => {});
+    await this.disconnect();
+  }
+
+  async resume() { this.suspended = false; await this.scan(); }
+
+  async reconnect() { await this.suspend(); await this.resume(); }
 
   async disconnect() {
     this.skipStartupAnimation();
@@ -77,6 +96,7 @@ export class Devices {
     this.waveCache.clear();
     if (deck) { deck.removeAllListeners(); await deck.close().catch(() => {}); }
     this.info.connected = false;
+    if (deck) this.onDisconnect();
     this.onStatus();
   }
 
