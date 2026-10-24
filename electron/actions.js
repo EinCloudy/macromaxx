@@ -11,8 +11,8 @@ async function limit(promise, ms = 10000) {
   finally { clearTimeout(timer); }
 }
 export class Actions {
-  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio }) {
-    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio });
+  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher }) {
+    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher });
     this.running = new Map(); this.obs = new OBSWebSocket(); this.obsState = { connected: false, scene: '', recording: false, streaming: false, inputs: [], scenes: [], muted: {} };
     this.obs.on('ConnectionClosed', () => { this.obsState.connected = false; status(); });
     this.obs.on('CurrentProgramSceneChanged', e => { this.obsState.scene = e.sceneName; status(); });
@@ -52,6 +52,7 @@ export class Actions {
       case 'audio': if (!this.audio) throw new Error('Audio service unavailable.'); await this.audio.execute(action); break;
       case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Only http, https, and mailto URLs are allowed.'); await this.shell.openExternal(url.href); break; }
       case 'app': {
+        if (this.launcher) { await this.launcher.launch(action, this.shell); break; }
         const target = String(action.path || '').replace(/^~(?=$|\/)/, os.homedir());
         if (!target) throw new Error('Choose an application or file first.');
         const stat = await fs.stat(target);
@@ -62,6 +63,7 @@ export class Actions {
         break;
       }
       case 'text': this.clipboard.writeText(String(action.text || '')); await this.input.hotkey(process.platform === 'darwin' ? 'CMD+V' : 'CTRL+V'); break;
+      case 'script': if (!this.launcher) throw new Error('Script service unavailable.'); return this.launcher.script(action, signal);
       case 'media': {
         const key = { playpause: 'PLAYPAUSE', next: 'NEXT', previous: 'PREVIOUS', mute: 'MUTE', volumeup: 'VOLUMEUP', volumedown: 'VOLUMEDOWN' }[action.command];
         if (!key) throw new Error('Unknown media command');

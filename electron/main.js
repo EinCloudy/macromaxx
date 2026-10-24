@@ -10,16 +10,17 @@ import { Devices } from './devices.js';
 import { Plugins } from './plugins.js';
 import { Actions } from './actions.js';
 import { Audio } from './audio.js';
+import { Launcher } from './launcher.js';
 import { validateState } from '../shared/model.js';
 import { isKeyActive } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exec = promisify(execFile); const dev = process.argv.includes('--dev');
-let win, tray, store, state, input, devices, plugins, actions, audio, folderPath = [], quitting = false;
+let win, tray, store, state, input, devices, plugins, actions, audio, launcher, folderPath = [], quitting = false;
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
@@ -71,6 +72,7 @@ else {
     try { state = await store.load(); } catch (e) { dialog.showErrorBox('MacroMaxx – Workspace', e.message); app.quit(); return; }
     input = new Input(status, { tokenFile: path.join(app.getPath('userData'), 'keyboard-permission.json') });
     audio = new Audio(status);
+    launcher = new Launcher(status); await launcher.scan();
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => slot.key), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state }), getSettings: () => state.settings,
       onDown: index => {
@@ -89,7 +91,7 @@ else {
         else if (record && record.keyId === deckSlots(state, folderPath, devices.info.count)[index]?.key?.id) execute(index, Date.now() - record.time > 600).catch(e => log('error', 'Key', e.message));
       }
     });
-    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio });
+    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
       save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) folderPath = []; state = next; await devices.render(); return true; },
@@ -98,6 +100,7 @@ else {
       diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup({ persist: state.settings.rememberWaylandPermission !== false }); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
       forgetInput: () => input.forget(),
       refreshAudio: () => audio.refresh(),
+      refreshApplications: () => launcher.scan(),
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); await audio.refresh(); },
       installUdev: async () => {
         if (process.platform !== 'linux') throw new Error('Available on Linux only.');
@@ -147,6 +150,7 @@ else {
     app.cleanupStarted = true;
     actions.close();
     plugins.close();
+    launcher.close();
     Promise.allSettled([input.close(), audio.close(), devices.close(), store.queue]).then(() => {
       app.cleanupDone = true;
       app.quit();

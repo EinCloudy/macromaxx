@@ -48,6 +48,12 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 ## Actions
 
+### Applications and scripts
+
+**Open application** can search installed desktop entries (including Flatpak exports), launch a Flatpak ID, or open a custom executable/file. Configure arguments as a JSON array, a working directory, environment variables as a JSON object, and optional terminal mode. Arguments remain separate argv entries; application launches do not interpolate shell syntax. Existing path-only actions remain supported.
+
+**Shell script** explicitly executes a trusted script with your user permissions. Arguments become `$1`, `$2`, etc. Output and errors appear in Activity. Foreground scripts have a 60-second timeout and cancellation terminates their process group. Detached subprocesses are outside that lifecycle. Environment values are saved and exported with the workspace.
+
 ### Linux audio and microphone holds
 
 **Audio & microphone** uses `pactl` with PipeWire-Pulse or PulseAudio. Select a named device or the current system default, toggle mute, set/step volume, select the default input/output, or move all streams of a selected application to an output. External mute/volume changes update the deck indicator. **Settings → Linux audio** lists connected devices and their live state.

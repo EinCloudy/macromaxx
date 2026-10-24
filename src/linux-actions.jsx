@@ -1,4 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { api } from './api.js';
+function TextField({ label, value, onChange, multiline, placeholder }) { return <label className="field"><span>{label}</span>{multiline ? <textarea rows="4" value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} /> : <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} />}</label>; }
+export function LauncherEditor({ action, update, status, perform }) {
+  const [search, setSearch] = useState('');
+  const apps = (status.apps || []).filter(app => app.id === action.desktopId || app.name.toLowerCase().includes(search.toLowerCase()));
+  return <>
+    <Select label="Launch mode" value={action.mode || 'file'} options={[["file", 'Application or file path'], ['installed', 'Installed application'], ['flatpak', 'Flatpak app ID']]} onChange={mode => update({ mode })} />
+    {action.mode === 'installed' ? <><TextField label="Find an application" value={search} onChange={setSearch} /><Select label="Installed application" value={action.desktopId || ''} options={[["", 'Choose an application …'], ...apps.map(app => [app.id, `${app.name}${app.flatpak ? ' (Flatpak)' : ''}`])]} onChange={desktopId => update({ desktopId })} /><button className="button small" onClick={() => perform(() => api.refreshApplications())}>Refresh applications</button></> : action.mode === 'flatpak' ? <TextField label="Flatpak application ID" value={action.flatpakId} placeholder="org.mozilla.firefox" onChange={flatpakId => update({ flatpakId })} /> : <><TextField label="Application or file" value={action.path} placeholder="/path/to/application or executable in PATH" onChange={path => update({ path })} /><button className="button small" onClick={() => perform(async () => { const path = await api.pickFile(); if (path) update({ path }); })}>Choose file</button></>}
+    <ProcessFields action={action} update={update} />
+    <label className="checkbox-label"><input type="checkbox" checked={!!action.terminal} onChange={e => update({ terminal: e.target.checked })} />Open in terminal</label>
+  </>;
+}
+function ProcessFields({ action, update }) {
+  return <><TextField label="Arguments (JSON array)" value={action.args || '[]'} placeholder={'["--new-window", "a path with spaces"]'} onChange={args => update({ args })} /><TextField label="Working directory" value={action.cwd} placeholder="Optional; ~ is supported" onChange={cwd => update({ cwd })} /><TextField label="Environment (JSON object)" value={action.env || '{}'} onChange={env => update({ env })} /><p className="muted-text">Arguments are passed separately, without shell interpolation. Environment values are included in workspace exports.</p></>;
+}
+export function ScriptEditor({ action, update }) {
+  return <><TextField label="Shell executable" value={action.shell || '/bin/sh'} onChange={shell => update({ shell })} /><TextField label="Shell script" value={action.script} multiline placeholder="Your command or script" onChange={script => update({ script })} /><ProcessFields action={action} update={update} /><p className="muted-text">Runs with your user permissions. Foreground commands are awaited, output appears in Activity, and chains can cancel the process group. Timeout: 60 seconds.</p></>;
+}
 export function Select({ label, value, options, onChange }) {
   return <label className="field"><span>{label}</span><select value={value} onChange={e => onChange(e.target.value)}>{options.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>;
 }

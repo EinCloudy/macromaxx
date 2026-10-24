@@ -3,7 +3,8 @@ export const uid = () => globalThis.crypto.randomUUID();
 export const catalog = [
   { type: 'hotkey', name: 'Hotkey', icon: 'Keyboard', group: 'System', description: 'Trigger a key combination', defaults: { keys: 'CTRL+SHIFT+M' } },
   { type: 'url', name: 'Website', icon: 'Globe', group: 'System', description: 'Open a URL in your browser', defaults: { url: 'https://example.com' } },
-  { type: 'app', name: 'Open application', icon: 'AppWindow', group: 'System', description: 'Launch an application or file', defaults: { path: '' } },
+  { type: 'app', name: 'Open application', icon: 'AppWindow', group: 'System', description: 'Launch an application or file', defaults: { mode: 'file', path: '', args: '[]', cwd: '', env: '{}', terminal: false } },
+  { type: 'script', name: 'Shell script', icon: 'Terminal', group: 'System', description: 'Run a command or script with arguments', defaults: { shell: '/bin/sh', script: '', args: '[]', cwd: '', env: '{}' } },
   { type: 'text', name: 'Type text', icon: 'TextCursorInput', group: 'System', description: 'Paste text from the clipboard', defaults: { text: '' } },
   { type: 'media', name: 'Media controls', icon: 'Music2', group: 'System', description: 'Control playback and volume', defaults: { command: 'playpause' } },
   { type: 'audio', name: 'Audio & microphone', icon: 'Mic', group: 'System', description: 'Linux devices, mute, volume, and push-to-talk', defaults: { kind: 'input', target: 'default', command: 'mute', volume: 5 } },
