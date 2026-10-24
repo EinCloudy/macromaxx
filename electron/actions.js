@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { setTimeout as sleep } from 'node:timers/promises';
 import os from 'node:os';
 import OBSWebSocket from 'obs-websocket-js/json';
+import { playerCommands } from './media.js';
 const exec = promisify(execFile);
 async function limit(promise, ms = 10000) {
   let timer;
@@ -11,8 +12,8 @@ async function limit(promise, ms = 10000) {
   finally { clearTimeout(timer); }
 }
 export class Actions {
-  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher }) {
-    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher });
+  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media }) {
+    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media });
     this.running = new Map(); this.obs = new OBSWebSocket(); this.obsState = { connected: false, scene: '', recording: false, streaming: false, inputs: [], scenes: [], muted: {} };
     this.obs.on('ConnectionClosed', () => { this.obsState.connected = false; status(); });
     this.obs.on('CurrentProgramSceneChanged', e => { this.obsState.scene = e.sceneName; status(); });
@@ -65,6 +66,7 @@ export class Actions {
       case 'text': this.clipboard.writeText(String(action.text || '')); await this.input.hotkey(process.platform === 'darwin' ? 'CMD+V' : 'CTRL+V'); break;
       case 'script': if (!this.launcher) throw new Error('Script service unavailable.'); return this.launcher.script(action, signal);
       case 'media': {
+        if (process.platform === 'linux' && this.media && playerCommands.includes(action.command)) { await this.media.execute(action); break; }
         const key = { playpause: 'PLAYPAUSE', next: 'NEXT', previous: 'PREVIOUS', mute: 'MUTE', volumeup: 'VOLUMEUP', volumedown: 'VOLUMEDOWN' }[action.command];
         if (!key) throw new Error('Unknown media command');
         if (process.platform === 'linux' && ['playpause', 'next', 'previous'].includes(action.command)) await exec('playerctl', [action.command === 'playpause' ? 'play-pause' : action.command], { signal });

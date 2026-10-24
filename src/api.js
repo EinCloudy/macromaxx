@@ -10,5 +10,6 @@ export const api = window.macro || {
   reconnect: unavailable,
   forgetInput: unavailable,
   refreshApplications: unavailable,
+  refreshMedia: unavailable,
   execute: unavailable, setupInput: unavailable, installUdev: unavailable, connectOBS: unavailable, disconnectOBS: unavailable, importWorkspace: unavailable, exportWorkspace: unavailable, pickFile: unavailable, pickImage: unavailable, openPlugins: unavailable, selectDevice: unavailable, cancel: async () => {}, quit: unavailable,
 };

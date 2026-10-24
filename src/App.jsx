@@ -3,13 +3,13 @@ import { api, desktop } from './api.js';
 import { Icon, iconNames } from './icons.jsx';
 import { catalog, makeAction, makeKey, makeProfile, uid, visibleKeys, duplicateKey } from '../shared/model.js';
 import { renderKey } from './renderKeys.js';
-import { isKeyActive, collectVisuals } from '../shared/visuals.js';
+import { isKeyActive, collectVisuals, liveKey } from '../shared/visuals.js';
 import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
-import { AudioEditor, LauncherEditor, ScriptEditor } from './linux-actions.jsx';
-import { AudioSettings } from './linux-settings.jsx';
+import { AudioEditor, LauncherEditor, ScriptEditor, MediaEditor } from './linux-actions.jsx';
+import { AudioSettings, MediaSettings } from './linux-settings.jsx';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
 const clone = value => structuredClone(value);
@@ -55,7 +55,7 @@ export default function App() {
   const key = backSelected ? null : selectedSlot?.key;
   const profile = state?.profiles.find(p => p.id === state.activeProfileId);
   const activeKey = k => isKeyActive(k, status.obs, status);
-  const displayKeys = slots.map(slot => slot.key);
+  const displayKeys = slots.map(slot => liveKey(slot.key, status));
   const imageBank = state ? collectVisuals(state, status.obs, status) : [];
   const imageBankIdentity = JSON.stringify(imageBank.map(entry => entry.signature));
   useEffect(() => {
@@ -227,7 +227,7 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
     {action.type === 'app' && <LauncherEditor action={action} update={update} status={status} perform={perform} />}
     {action.type === 'script' && <ScriptEditor action={action} update={update} />}
     {action.type === 'text' && <>{input('text', 'Text', 'Your text …', true)}<p className="muted-text">Copies the text to the clipboard and pastes it with Ctrl+V (Cmd+V on macOS).</p></>}
-    {action.type === 'media' && select('command', 'Command', [['playpause', 'Play / Pause'], ['next', 'Next track'], ['previous', 'Previous track'], ['mute', 'Mute'], ['volumeup', 'Volume up'], ['volumedown', 'Volume down']])}
+    {action.type === 'media' && <MediaEditor action={action} update={update} status={status} />}
     {action.type === 'webhook' && <>{select('method', 'Method', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].map(m => [m, m]))}{input('url', 'Endpoint', 'https://…')}{input('headers', 'Headers (JSON)', '{"Content-Type":"application/json"}', true)}{!['GET', 'HEAD'].includes(action.method) && input('body', 'Request body', '{}', true)}<p className="muted-text">Timeout: 15 seconds. Results appear in Activity.</p></>}
     {action.type === 'delay' && <Field label="Delay in milliseconds"><input type="number" min="0" max="300000" value={action.ms} onChange={e => update({ ms: Number(e.target.value) })} /></Field>}
     {action.type === 'profile' && select('profileId', 'Target profile', [['', 'Choose a profile …'], ...state.profiles.map(p => [p.id, p.name])])}
@@ -251,6 +251,7 @@ function Settings({ state, status, diagnostics, plugins, change, perform, flush,
       <AnimationSettings state={state} change={change} />
       <TypographySettings state={state} change={change} />
       <AudioSettings status={status} perform={perform} />
+      <MediaSettings status={status} perform={perform} />
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Keyboard" /></span><div><h3>Keyboard & devices</h3><p>{diagnostics?.backend || 'Checking your system …'}</p></div><span className={`connection ${status.inputReady ? 'connected' : ''}`}><i />{status.inputReady ? 'Ready' : 'Set up'}</span></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}

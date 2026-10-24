@@ -6,7 +6,7 @@ export const catalog = [
   { type: 'app', name: 'Open application', icon: 'AppWindow', group: 'System', description: 'Launch an application or file', defaults: { mode: 'file', path: '', args: '[]', cwd: '', env: '{}', terminal: false } },
   { type: 'script', name: 'Shell script', icon: 'Terminal', group: 'System', description: 'Run a command or script with arguments', defaults: { shell: '/bin/sh', script: '', args: '[]', cwd: '', env: '{}' } },
   { type: 'text', name: 'Type text', icon: 'TextCursorInput', group: 'System', description: 'Paste text from the clipboard', defaults: { text: '' } },
-  { type: 'media', name: 'Media controls', icon: 'Music2', group: 'System', description: 'Control playback and volume', defaults: { command: 'playpause' } },
+  { type: 'media', name: 'Media controls', icon: 'Music2', group: 'System', description: 'Control playback and volume', defaults: { command: 'playpause', player: 'auto', showTitle: false, showArtist: false, volume: 50, step: 5 } },
   { type: 'audio', name: 'Audio & microphone', icon: 'Mic', group: 'System', description: 'Linux devices, mute, volume, and push-to-talk', defaults: { kind: 'input', target: 'default', command: 'mute', volume: 5 } },
   { type: 'webhook', name: 'Webhook', icon: 'Webhook', group: 'Connections', description: 'Send an HTTP request to your workflow', defaults: { url: '', method: 'POST', headers: '{}', body: '{}' } },
   { type: 'obs', name: 'OBS Studio', icon: 'Video', group: 'Connections', description: 'Scenes, recording, and streaming', defaults: { command: 'scene', scene: '', input: '' } },

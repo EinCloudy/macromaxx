@@ -48,6 +48,10 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 ## Actions
 
+### MPRIS players
+
+Media keys can select a specific Linux MPRIS player or automatically prefer a playing one. Browser instance IDs are resolved to the same application when its instance changes. Playback, player volume, title, artist, and live playing-state indicators use playerctl. Optional title labels are transient: your configured label remains saved and returns when metadata is unavailable. System mute/volume commands remain separate from player volume. **Settings → Media players** shows the current players and metadata.
+
 ### Applications and scripts
 
 **Open application** can search installed desktop entries (including Flatpak exports), launch a Flatpak ID, or open a custom executable/file. Configure arguments as a JSON array, a working directory, environment variables as a JSON object, and optional terminal mode. Arguments remain separate argv entries; application launches do not interpolate shell syntax. Existing path-only actions remain supported.
