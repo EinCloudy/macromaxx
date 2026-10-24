@@ -75,6 +75,12 @@ For **Push-to-talk** or **Push-to-mute**, put the audio action first on the key.
 
 ## Platform setup
 
+### Window and workspace actions
+
+**Desktop & windows** provides workspace changes, minimize/maximize/close, application switching, monitor moves, tiling, and fullscreen where supported. **Settings → Desktop integration** lists the detected backend. KDE uses the available KWin global-shortcut API through qdbus6/qdbus. Other X11 desktops use wmctrl, with xdotool for minimizing/app switching (Show desktop enables the desktop rather than toggling it on X11). Unsupported commands fail explicitly.
+
+GNOME Wayland requires the bundled **MacroMaxx Desktop Bridge** Shell extension (GNOME 45+). Install it from Settings, log out/in if needed, and enable `macromaxx@macromaxx.local` in Extensions. The bridge exports fixed commands and active-app information; it does not enable arbitrary Shell Eval. It runs with Shell permissions and is optional. KDE and GNOME backends have separate implementations; the GNOME extension needs testing on the installed GNOME version. Other Wayland compositors can use their own configured Hotkey/Script actions.
+
 USB connections are restored by serial number when a dock or hidraw path changes. Suspend releases the deck without playing a shutdown wave; resume reopens it and restores cached artwork without replaying startup. Locking, suspending, or disconnecting releases microphone holds and synthetic held keys. Use **Settings → Keyboard & devices → Reconnect Stream Deck** for a manual rescan. Wayland sessions are reset after resume so stale permissions are not reported as ready.
 
 ### Linux / KDE Wayland

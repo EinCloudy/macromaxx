@@ -8,8 +8,8 @@ import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
-import { AudioEditor, LauncherEditor, ScriptEditor, MediaEditor } from './linux-actions.jsx';
-import { AudioSettings, MediaSettings } from './linux-settings.jsx';
+import { AudioEditor, LauncherEditor, ScriptEditor, MediaEditor, DesktopEditor } from './linux-actions.jsx';
+import { AudioSettings, MediaSettings, DesktopSettings } from './linux-settings.jsx';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
 const clone = value => structuredClone(value);
@@ -224,6 +224,7 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
     </>}
     {action.type === 'url' && input('url', 'URL', 'https://…')}
     {action.type === 'audio' && <AudioEditor action={action} update={update} status={status} />}
+    {action.type === 'desktop' && <DesktopEditor action={action} update={update} status={status} />}
     {action.type === 'app' && <LauncherEditor action={action} update={update} status={status} perform={perform} />}
     {action.type === 'script' && <ScriptEditor action={action} update={update} />}
     {action.type === 'text' && <>{input('text', 'Text', 'Your text …', true)}<p className="muted-text">Copies the text to the clipboard and pastes it with Ctrl+V (Cmd+V on macOS).</p></>}
@@ -252,6 +253,7 @@ function Settings({ state, status, diagnostics, plugins, change, perform, flush,
       <TypographySettings state={state} change={change} />
       <AudioSettings status={status} perform={perform} />
       <MediaSettings status={status} perform={perform} />
+      <DesktopSettings status={status} perform={perform} />
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Keyboard" /></span><div><h3>Keyboard & devices</h3><p>{diagnostics?.backend || 'Checking your system …'}</p></div><span className={`connection ${status.inputReady ? 'connected' : ''}`}><i />{status.inputReady ? 'Ready' : 'Set up'}</span></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}

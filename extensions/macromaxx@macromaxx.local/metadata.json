@@ -1,0 +1,7 @@
+{
+  "uuid": "macromaxx@macromaxx.local",
+  "name": "MacroMaxx Desktop Bridge",
+  "description": "Typed window actions and active-application reporting for MacroMaxx.",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
+  "version": 1
+}

@@ -12,16 +12,17 @@ import { Actions } from './actions.js';
 import { Audio } from './audio.js';
 import { Launcher } from './launcher.js';
 import { Media } from './media.js';
+import { Desktop } from './desktop.js';
 import { validateState } from '../shared/model.js';
 import { isKeyActive, liveKey } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exec = promisify(execFile); const dev = process.argv.includes('--dev');
-let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, folderPath = [], quitting = false;
+let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, folderPath = [], quitting = false;
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
@@ -75,6 +76,7 @@ else {
     audio = new Audio(status);
     launcher = new Launcher(status); await launcher.scan();
     media = new Media(status);
+    desktop = new Desktop(status, input); await desktop.probe();
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => liveKey(slot.key, { media: media.state })), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state, media: media.state }), getSettings: () => state.settings,
       onDown: index => {
@@ -93,7 +95,7 @@ else {
         else if (record && record.keyId === deckSlots(state, folderPath, devices.info.count)[index]?.key?.id) execute(index, Date.now() - record.time > 600).catch(e => log('error', 'Key', e.message));
       }
     });
-    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media });
+    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media, desktop });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
       save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) folderPath = []; state = next; await devices.render(); return true; },
@@ -104,6 +106,8 @@ else {
       refreshAudio: () => audio.refresh(),
       refreshApplications: () => launcher.scan(),
       refreshMedia: () => media.refresh(),
+      refreshDesktop: () => desktop.probe(),
+      installDesktopExtension: () => desktop.installExtension(path.join(app.getAppPath(), 'extensions/macromaxx@macromaxx.local')),
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); await audio.refresh(); },
       installUdev: async () => {
         if (process.platform !== 'linux') throw new Error('Available on Linux only.');

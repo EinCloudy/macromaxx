@@ -42,6 +42,7 @@
       "electron/**/*",
       "shared/**/*",
       "plugins/**/*",
+      "extensions/**/*",
       "package.json"
     ],
     "asarUnpack": [

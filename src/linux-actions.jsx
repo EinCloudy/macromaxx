@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { api } from './api.js';
+import { desktopCommands } from '../shared/desktop-commands.js';
+export function DesktopEditor({ action, update, status }) {
+  return <><Select label="Desktop action" value={action.command} options={desktopCommands.map(([id, label]) => [id, label + (status.desktop?.supported?.includes(id) ? '' : ' (not available here)')])} onChange={command => update({ command })} /><p className="muted-text">Backend: {status.desktop?.backend || 'Not detected'}. {status.desktop?.error || 'Actions affect the currently focused window.'}</p></>;
+}
 function TextField({ label, value, onChange, multiline, placeholder }) { return <label className="field"><span>{label}</span>{multiline ? <textarea rows="4" value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} /> : <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} />}</label>; }
 export function LauncherEditor({ action, update, status, perform }) {
   const [search, setSearch] = useState('');

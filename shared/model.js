@@ -8,6 +8,7 @@ export const catalog = [
   { type: 'text', name: 'Type text', icon: 'TextCursorInput', group: 'System', description: 'Paste text from the clipboard', defaults: { text: '' } },
   { type: 'media', name: 'Media controls', icon: 'Music2', group: 'System', description: 'Control playback and volume', defaults: { command: 'playpause', player: 'auto', showTitle: false, showArtist: false, volume: 50, step: 5 } },
   { type: 'audio', name: 'Audio & microphone', icon: 'Mic', group: 'System', description: 'Linux devices, mute, volume, and push-to-talk', defaults: { kind: 'input', target: 'default', command: 'mute', volume: 5 } },
+  { type: 'desktop', name: 'Desktop & windows', icon: 'Monitor', group: 'System', description: 'Workspaces, windows, and monitors', defaults: { command: 'workspace-next' } },
   { type: 'webhook', name: 'Webhook', icon: 'Webhook', group: 'Connections', description: 'Send an HTTP request to your workflow', defaults: { url: '', method: 'POST', headers: '{}', body: '{}' } },
   { type: 'obs', name: 'OBS Studio', icon: 'Video', group: 'Connections', description: 'Scenes, recording, and streaming', defaults: { command: 'scene', scene: '', input: '' } },
   { type: 'folder', name: 'Folder', icon: 'Folder', group: 'Organization', description: 'Make room for more actions', defaults: {} },
