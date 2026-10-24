@@ -215,7 +215,7 @@ def process(message):
                             def authorized():
                                 global ready
                                 ready = True
-                                ok({'ready': True})
+                                ok({'ready': True, 'restoreToken': str(result.get('restore_token', ''))})
                             try:
                                 if ctypes.util.find_library('ei') and keymap:
                                     fd = remote.ConnectToEIS(dbus.ObjectPath(session), {}).take()
@@ -227,7 +227,14 @@ def process(message):
                             except Exception as error:
                                 fail(str(error))
                     request(remote.Start, [dbus.ObjectPath(session), ''], {}, started, fail)
-                request(remote.SelectDevices, [dbus.ObjectPath(session)], {'types': dbus.UInt32(1)}, selected, fail)
+                options = {'types': dbus.UInt32(1)}
+                properties = dbus.Interface(bus.get_object(destination, root), 'org.freedesktop.DBus.Properties')
+                version = int(properties.Get('org.freedesktop.portal.RemoteDesktop', 'version'))
+                if version >= 2 and message.get('persist', True):
+                    options['persist_mode'] = dbus.UInt32(2)
+                    if message.get('restoreToken'):
+                        options['restore_token'] = dbus.String(message['restoreToken'])
+                request(remote.SelectDevices, [dbus.ObjectPath(session)], options, selected, fail)
             request(remote.CreateSession, [], {'session_handle_token': dbus.String('mm' + uuid.uuid4().hex)}, created, fail)
         elif message['command'] == 'keys':
             if not session or not ready:

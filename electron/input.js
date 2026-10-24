@@ -2,6 +2,7 @@ import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
+import { readPermission, writePermission, forgetPermission } from './permissions.js';
 const exec = promisify(execFile);
 const symbols = { CTRL: 0xffe3, CONTROL: 0xffe3, SHIFT: 0xffe1, ALT: 0xffe9, META: 0xffeb, SUPER: 0xffeb, CMD: 0xffeb, COMMAND: 0xffeb, ENTER: 0xff0d, RETURN: 0xff0d, TAB: 0xff09, ESC: 0xff1b, ESCAPE: 0xff1b, SPACE: 32, BACKSPACE: 0xff08, DELETE: 0xffff, HOME: 0xff50, END: 0xff57, LEFT: 0xff51, UP: 0xff52, RIGHT: 0xff53, DOWN: 0xff54, PAGEUP: 0xff55, PAGEDOWN: 0xff56, PLAYPAUSE: 0x1008ff14, NEXT: 0x1008ff17, PREVIOUS: 0x1008ff16, MUTE: 0x1008ff12, VOLUMEUP: 0x1008ff13, VOLUMEDOWN: 0x1008ff11 };
 export function parseKeys(value) {
@@ -14,14 +15,14 @@ export function parseKeys(value) {
   });
 }
 export class Input {
-  constructor(onStatus) { this.onStatus = onStatus; this.pending = new Map(); this.held = new Set(); this.ready = false; this.sequence = 0; this.wayland = process.platform === 'linux' && !!process.env.WAYLAND_DISPLAY; }
+  constructor(onStatus, { tokenFile } = {}) { this.onStatus = onStatus; this.tokenFile = tokenFile; this.pending = new Map(); this.held = new Set(); this.ready = false; this.sequence = 0; this.wayland = process.platform === 'linux' && !!process.env.WAYLAND_DISPLAY; }
   async diagnostics() {
     let python = false, xdotool = false;
     if (process.platform === 'linux') {
       python = await exec('python3', ['-c', 'import dbus; from gi.repository import GLib']).then(() => true).catch(() => false);
       xdotool = await exec('xdotool', ['--version']).then(() => true).catch(() => false);
     }
-    return { platform: process.platform, wayland: this.wayland, python, xdotool, ready: this.ready, backend: this.wayland ? 'Wayland / Desktop Portal' : process.platform === 'linux' ? 'X11 / xdotool' : process.platform === 'win32' ? 'Windows keyboard input' : 'macOS System Events' };
+    return { platform: process.platform, wayland: this.wayland, python, xdotool, ready: this.ready, savedPermission: !!(await readPermission(this.tokenFile)), backend: this.wayland ? 'Wayland / Desktop Portal' : process.platform === 'linux' ? 'X11 / xdotool' : process.platform === 'win32' ? 'Windows keyboard input' : 'macOS System Events' };
   }
   rpc(command, payload = {}) {
     if (!this.child) {
@@ -38,7 +39,30 @@ export class Input {
     }
     return new Promise((resolve, reject) => { const id = ++this.sequence; const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('Desktop portal did not respond.')); }, 125000); this.pending.set(id, { resolve, reject, timer }); this.child.stdin.write(JSON.stringify({ id, command, ...payload }) + '\n'); });
   }
-  async setup() { if (this.wayland) { await this.rpc('setup'); this.ready = true; } else if (process.platform === 'darwin') { await exec('osascript', ['-e', 'tell application "System Events" to get name']); this.ready = true; } else { const d = await this.diagnostics(); if (process.platform === 'linux' && !d.xdotool) throw new Error('Install xdotool first (see setup instructions).'); this.ready = true; } this.onStatus(); return this.diagnostics(); }
+  setup(options = {}) {
+    if (!this.setupPromise) this.setupPromise = this.performSetup(options).finally(() => { this.setupPromise = null; });
+    return this.setupPromise;
+  }
+  async performSetup({ persist = true } = {}) {
+    if (this.wayland) {
+      if (!persist) await forgetPermission(this.tokenFile);
+      const restoreToken = persist ? await readPermission(this.tokenFile) : null;
+      try {
+        const result = await this.rpc('setup', { persist, restoreToken });
+        if (persist && result.restoreToken) await writePermission(this.tokenFile, result.restoreToken);
+        this.ready = true;
+      } catch (error) { await this.reset(); throw error; }
+    } else if (process.platform === 'darwin') {
+      await exec('osascript', ['-e', 'tell application "System Events" to get name']); this.ready = true;
+    } else {
+      const d = await this.diagnostics();
+      if (process.platform === 'linux' && !d.xdotool) throw new Error('Install xdotool first (see setup instructions).');
+      this.ready = true;
+    }
+    this.onStatus(); return this.diagnostics();
+  }
+  async restore() { if (this.wayland && await readPermission(this.tokenFile)) return this.setup(); }
+  async forget() { await this.reset(); await forgetPermission(this.tokenFile); return this.diagnostics(); }
   async hotkey(value, mode = 'tap') {
     if (!['tap', 'down', 'up'].includes(mode)) throw new Error('Invalid hotkey behavior.');
     const keys = parseKeys(value);

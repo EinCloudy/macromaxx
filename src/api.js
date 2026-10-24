@@ -8,5 +8,6 @@ export const api = window.macro || {
   diagnostics: async () => ({ platform: 'browser', backend: 'Browser preview', wayland: false }),
   refreshAudio: unavailable,
   reconnect: unavailable,
+  forgetInput: unavailable,
   execute: unavailable, setupInput: unavailable, installUdev: unavailable, connectOBS: unavailable, disconnectOBS: unavailable, importWorkspace: unavailable, exportWorkspace: unavailable, pickFile: unavailable, pickImage: unavailable, openPlugins: unavailable, selectDevice: unavailable, cancel: async () => {}, quit: unavailable,
 };

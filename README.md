@@ -69,7 +69,7 @@ USB connections are restored by serial number when a dock or hidraw path changes
 
 ### Linux / KDE Wayland
 
-Open **Settings → Keyboard & devices → Allow keyboard input** and confirm the native desktop dialog. The app requests keyboard access only. Permission applies to the current app session and can be revoked by the desktop.
+Open **Settings → Keyboard & devices → Allow keyboard input** and confirm the native desktop dialog. The app requests keyboard access only. Enable persistence in the desktop dialog if offered. With **Remember and restore keyboard permission** enabled, portal v2 restore tokens are rotated and stored with user-only permissions in `keyboard-permission.json`, outside workspace exports. The app attempts restoration at startup and after resume. Revoked/expired permissions or unsupported desktops may require a new confirmation. **Forget saved permission** closes the session and deletes the local token; desktop-side permission revocation remains available in desktop settings.
 
 Required: `python3`, Python D-Bus, PyGObject, `libei`, `libxkbcommon`, a RemoteDesktop portal implementation, and the desktop's portal backend (`xdg-desktop-portal-kde` on KDE). Modern desktops receive input through EIS/libei, with the current keyboard layout supplied by the compositor. Older portals can use D-Bus input methods.
 

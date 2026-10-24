@@ -69,7 +69,7 @@ else {
   app.whenReady().then(async () => {
     app.setName('MacroMaxx'); store = new Store(app.getPath('userData'));
     try { state = await store.load(); } catch (e) { dialog.showErrorBox('MacroMaxx – Workspace', e.message); app.quit(); return; }
-    input = new Input(status);
+    input = new Input(status, { tokenFile: path.join(app.getPath('userData'), 'keyboard-permission.json') });
     audio = new Audio(status);
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => slot.key), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state }), getSettings: () => state.settings,
@@ -95,7 +95,8 @@ else {
       save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) folderPath = []; state = next; await devices.render(); return true; },
       execute: (_, index, long) => execute(index, long), navigate: (_, target) => navigate(target),
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
-      diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup(); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
+      diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup({ persist: state.settings.rememberWaylandPermission !== false }); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
+      forgetInput: () => input.forget(),
       refreshAudio: () => audio.refresh(),
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); await audio.refresh(); },
       installUdev: async () => {
@@ -131,10 +132,11 @@ else {
     win.on('close', event => { if (!quitting && state.settings.closeToTray) { event.preventDefault(); win.hide(); } });
     if (dev) await win.loadURL('http://127.0.0.1:5173'); else await win.loadFile(path.join(here, '../dist/index.html'));
     devices.start(); audio.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
+    if (state.settings.rememberWaylandPermission !== false) input.restore().catch(e => log('error', 'Keyboard permission restore', e.message));
     powerMonitor.on('suspend', () => { releasePhysicalKeys(); devices.suspend().catch(e => log('error', 'Suspend', e.message)); });
     powerMonitor.on('lock-screen', releasePhysicalKeys);
     powerMonitor.on('resume', () => {
-      Promise.allSettled([devices.resume(), audio.refresh(), input.reset()]).then(status);
+      Promise.allSettled([devices.resume(), audio.refresh(), input.reset().then(() => state.settings.rememberWaylandPermission !== false ? input.restore() : null)]).then(status);
     });
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
