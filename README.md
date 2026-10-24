@@ -75,6 +75,12 @@ For **Push-to-talk** or **Push-to-mute**, put the audio action first on the key.
 
 ## Platform setup
 
+### Automatic profiles
+
+Enable **Settings → Automatic profiles** and enter application-ID patterns per profile (one per line; `*` and `?`, case-insensitive). The first matching profile wins. Choose a fallback or retain the last manually selected profile for unmatched apps. Manual selection stays until focus changes; MacroMaxx focus is ignored so editing remains stable. New focus is debounced. Rules and fallback settings are exported; window titles are transient, not logged or saved.
+
+KDE loads a session-local KWin watcher only while this feature is enabled, with a D-Bus receiver that accepts reports only from KWin. It is unloaded on disable/exit. GNOME uses the optional Desktop Bridge extension. X11 requires xdotool. Unsupported backends show a detection error rather than switching unpredictably.
+
 ### Window and workspace actions
 
 **Desktop & windows** provides workspace changes, minimize/maximize/close, application switching, monitor moves, tiling, and fullscreen where supported. **Settings → Desktop integration** lists the detected backend. KDE uses the available KWin global-shortcut API through qdbus6/qdbus. Other X11 desktops use wmctrl, with xdotool for minimizing/app switching (Show desktop enables the desktop rather than toggling it on X11). Unsupported commands fail explicitly.

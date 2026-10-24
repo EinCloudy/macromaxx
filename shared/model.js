@@ -51,13 +51,18 @@ export function validateState(value) {
       keys(key.children, depth + 1);
     }
   }
-  for (const p of value.profiles) { if (typeof p.id !== 'string' || ids.has(p.id) || typeof p.name !== 'string') throw new Error('Invalid profile.'); ids.add(p.id); keys(p.keys); }
+  for (const p of value.profiles) {
+    if (typeof p.id !== 'string' || ids.has(p.id) || typeof p.name !== 'string') throw new Error('Invalid profile.');
+    if (p.appRules !== undefined && (!Array.isArray(p.appRules) || p.appRules.length > 32 || p.appRules.some(rule => typeof rule !== 'string' || rule.length > 256))) throw new Error('Invalid application profile rules.');
+    ids.add(p.id); keys(p.keys);
+  }
   if (!ids.has(value.activeProfileId)) throw new Error('Active profile is missing.');
   if (!value.settings || !Number.isFinite(value.settings.brightness) || value.settings.brightness < 0 || value.settings.brightness > 100) throw new Error('Invalid settings.');
   if (typeof value.settings.autostart !== 'boolean' || typeof value.settings.closeToTray !== 'boolean' || typeof value.settings.obsUrl !== 'string' || typeof value.settings.obsPassword !== 'string' || !['dark', 'light'].includes(value.settings.theme)) throw new Error('Invalid app settings.');
-  for (const name of ['folderAnimations', 'iconRevealAnimation', 'rememberWaylandPermission']) {
+  for (const name of ['folderAnimations', 'iconRevealAnimation', 'rememberWaylandPermission', 'autoProfiles']) {
     if (value.settings[name] !== undefined && typeof value.settings[name] !== 'boolean') throw new Error('Invalid animation setting.');
   }
+  if (value.settings.autoProfileFallback !== undefined && typeof value.settings.autoProfileFallback !== 'string') throw new Error('Invalid automatic-profile fallback.');
   if (value.settings.defaultFontSize !== undefined && (!Number.isInteger(value.settings.defaultFontSize) || value.settings.defaultFontSize < MIN_FONT_SIZE || value.settings.defaultFontSize > MAX_FONT_SIZE)) throw new Error('Invalid default font size.');
   return value;
 }

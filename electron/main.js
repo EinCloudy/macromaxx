@@ -13,16 +13,18 @@ import { Audio } from './audio.js';
 import { Launcher } from './launcher.js';
 import { Media } from './media.js';
 import { Desktop } from './desktop.js';
+import { FocusMonitor } from './focus.js';
+import { AutoProfiles } from './auto-profiles.js';
 import { validateState } from '../shared/model.js';
 import { isKeyActive, liveKey } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exec = promisify(execFile); const dev = process.argv.includes('--dev');
-let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, folderPath = [], quitting = false;
+let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, focus, autoProfiles, folderPath = [], quitting = false;
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
@@ -33,8 +35,9 @@ function releasePhysicalKeys() {
 }
 async function persist() { await store.save(state); }
 async function navigate(target) {
+  if (quitting) return;
   const previousPath = [...folderPath];
-  if (target.profileId) { if (!state.profiles.some(p => p.id === target.profileId)) throw new Error('Profile not found.'); state.activeProfileId = target.profileId; folderPath = []; await persist(); }
+  if (target.profileId) { if (!state.profiles.some(p => p.id === target.profileId)) throw new Error('Profile not found.'); if (!target.automatic) autoProfiles?.manual(target.profileId); state.activeProfileId = target.profileId; folderPath = []; await persist(); }
   else if (target.up) folderPath.pop();
   else if (Array.isArray(target.path)) {
     if (target.path.some(i => !Number.isInteger(i) || i < 0 || i > 127) || target.path.length > 12) throw new Error('Invalid folder path.');
@@ -77,6 +80,8 @@ else {
     launcher = new Launcher(status); await launcher.scan();
     media = new Media(status);
     desktop = new Desktop(status, input); await desktop.probe();
+    autoProfiles = new AutoProfiles(() => state, id => navigate({ profileId: id, automatic: true }), e => log('error', 'Automatic profile', e.message));
+    focus = new FocusMonitor(path.join(app.getPath('userData'), 'runtime'), desktop, info => { status(); autoProfiles.update(info); });
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => liveKey(slot.key, { media: media.state })), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state, media: media.state }), getSettings: () => state.settings,
       onDown: index => {
@@ -98,7 +103,7 @@ else {
     actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media, desktop });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
-      save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) folderPath = []; state = next; await devices.render(); return true; },
+      save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) { folderPath = []; autoProfiles.manual(next.activeProfileId); } state = next; await focus.configure(!!state.settings.autoProfiles); autoProfiles.update(focus.state, true); await devices.render(); return true; },
       execute: (_, index, long) => execute(index, long), navigate: (_, target) => navigate(target),
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
       diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup({ persist: state.settings.rememberWaylandPermission !== false }); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
@@ -142,11 +147,12 @@ else {
     win.on('close', event => { if (!quitting && state.settings.closeToTray) { event.preventDefault(); win.hide(); } });
     if (dev) await win.loadURL('http://127.0.0.1:5173'); else await win.loadFile(path.join(here, '../dist/index.html'));
     devices.start(); audio.start(); media.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
+    focus.configure(!!state.settings.autoProfiles).catch(e => log('error', 'Focus detection', e.message));
     if (state.settings.rememberWaylandPermission !== false) input.restore().catch(e => log('error', 'Keyboard permission restore', e.message));
     powerMonitor.on('suspend', () => { releasePhysicalKeys(); devices.suspend().catch(e => log('error', 'Suspend', e.message)); });
     powerMonitor.on('lock-screen', releasePhysicalKeys);
     powerMonitor.on('resume', () => {
-      Promise.allSettled([devices.resume(), audio.refresh(), media.refresh(), input.reset().then(() => state.settings.rememberWaylandPermission !== false ? input.restore() : null)]).then(status);
+      Promise.allSettled([devices.resume(), audio.refresh(), media.refresh(), focus.restart(), input.reset().then(() => state.settings.rememberWaylandPermission !== false ? input.restore() : null)]).then(status);
     });
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
@@ -159,7 +165,8 @@ else {
     plugins.close();
     launcher.close();
     media.close();
-    Promise.allSettled([input.close(), audio.close(), devices.close(), store.queue]).then(() => {
+    autoProfiles.close();
+    Promise.allSettled([input.close(), audio.close(), focus.close(), devices.close(), store.queue]).then(() => {
       app.cleanupDone = true;
       app.quit();
     });

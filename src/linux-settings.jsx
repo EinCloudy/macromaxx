@@ -1,6 +1,16 @@
 import React from 'react';
 import { Icon } from './icons.jsx';
 import { api } from './api.js';
+import { Select } from './linux-actions.jsx';
+export function AutoProfileSettings({ state, status, change }) {
+  return <section className="settings-card"><div className="settings-title"><span className="action-icon"><Icon name="Layers" /></span><div><h3>Automatic profiles</h3><p>Switch setups when the focused application changes.</p></div></div>
+    <label className="checkbox-label"><input type="checkbox" checked={!!state.settings.autoProfiles} onChange={e => change(s => { s.settings.autoProfiles = e.target.checked; })} />Enable automatic profile switching</label>
+    <p className="muted-text">Active application: {status.focus?.appId || 'Not detected'}<br />{status.focus?.error || (status.focus?.available ? 'Focus bridge connected.' : 'Enable detection to see the application ID.')}</p>
+    <Select label="Unmatched application fallback" value={state.settings.autoProfileFallback || ''} options={[["", 'Last manually selected profile'], ...state.profiles.map(p => [p.id, p.name])]} onChange={id => change(s => { s.settings.autoProfileFallback = id; })} />
+    {state.profiles.map(profile => <label className="field" key={profile.id}><span>{profile.name} · application patterns (one per line)</span><textarea rows="2" placeholder="code\norg.mozilla.firefox*" value={(profile.appRules || []).join('\n')} onChange={e => { const rules = e.target.value.split('\n').slice(0,32); change(s => { s.profiles.find(p => p.id === profile.id).appRules = rules; }); }} /></label>)}
+    <p className="muted-text">Patterns match application IDs, case-insensitively; * and ? are wildcards. First matching profile wins. Manual selection stays until focus changes; MacroMaxx itself never triggers a switch. KDE uses a session-local KWin watcher, GNOME uses the optional bridge, and X11 uses xdotool. Window titles are transient and are not logged or exported.</p>
+  </section>;
+}
 export function AudioSettings({ status, perform }) {
   const audio = status.audio || {};
   return <section className="settings-card"><div className="settings-title"><span className="action-icon"><Icon name="Mic" /></span><div><h3>Linux audio</h3><p>PipeWire / PulseAudio devices and live mute state.</p></div></div>
