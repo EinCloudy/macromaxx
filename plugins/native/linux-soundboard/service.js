@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
-import { run } from './commands.js';
+import { run } from '../../../electron/commands.js';
 export function parseModules(text) {
   // pactl's JSON module listing omits IDs on some PipeWire versions.
   return text.split(/\r?\n/).filter(line => /^\d+\t/.test(line)).map(line => {

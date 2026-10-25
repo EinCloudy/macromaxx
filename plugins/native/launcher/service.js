@@ -32,8 +32,9 @@ export function desktopCommand(entry) {
 const expandHome = value => String(value || '').replace(/^~(?=$|\/)/, os.homedir());
 
 export class Launcher {
-  constructor(onStatus, launch = spawn) { this.onStatus = onStatus; this.spawn = launch; this.entries = new Map(); this.apps = []; this.scripts = new Set(); }
+  constructor(onStatus, launch = spawn, { platform = process.platform } = {}) { this.onStatus = onStatus; this.spawn = launch; this.platform = platform; this.entries = new Map(); this.apps = []; this.scripts = new Set(); }
   async scan(directories) {
+    if (this.platform !== 'linux') { this.entries.clear(); this.apps = []; this.onStatus(); return this.apps; }
     const home = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local/share');
     const roots = directories || [path.join(home, 'applications'), ...(process.env.XDG_DATA_DIRS || '/usr/local/share:/usr/share').split(':').map(d => path.join(d, 'applications')), path.join(os.homedir(), '.local/share/flatpak/exports/share/applications'), '/var/lib/flatpak/exports/share/applications'];
     this.entries.clear(); const seen = new Set();
@@ -62,6 +63,7 @@ export class Launcher {
     return { ...process.env, ...env };
   }
   async terminal(command) {
+    if (this.platform !== 'linux') throw new Error('Terminal mode is currently implemented by the Linux adapter only.');
     for (const [binary, args] of [['xdg-terminal-exec', []], ['konsole', ['-e']], ['gnome-terminal', ['--']], ['xterm', ['-e']]]) {
       for (const directory of (process.env.PATH || '').split(path.delimiter)) {
         if (await fs.access(path.join(directory, binary), fs.constants.X_OK).then(() => true).catch(() => false)) return [binary, ...args, ...command];
@@ -70,6 +72,7 @@ export class Launcher {
     throw new Error('No supported terminal found (xdg-terminal-exec, konsole, gnome-terminal, or xterm).');
   }
   async launch(action, shell) {
+    if (this.platform !== 'linux' && ['installed', 'flatpak'].includes(action.mode)) throw new Error('Desktop-entry search and Flatpak launch modes require the Linux adapter.');
     const args = argumentsArray(action.args); let command, entry;
     if (action.mode === 'installed') {
       if (!this.entries.has(action.desktopId)) await this.scan();
@@ -81,14 +84,15 @@ export class Launcher {
     } else {
       const target = expandHome(action.path); if (!target) throw new Error('Choose an application or file first.');
       if (target.endsWith('.desktop')) {
+        if (this.platform !== 'linux') throw new Error('Desktop-entry files require the Linux adapter.');
         const text = await fs.readFile(target, 'utf8'); entry = { file: target };
         let section = ''; for (const line of text.split(/\r?\n/)) { if (line.startsWith('[')) section = line; else if (section === '[Desktop Entry]') { const i = line.indexOf('='); if (i > 0) entry[line.slice(0, i)] = line.slice(i + 1); } }
         command = desktopCommand(entry);
       } else {
         const stat = await fs.stat(target).catch(() => null);
-        const executable = stat?.isFile() && (process.platform === 'win32' || !!(stat.mode & 0o111));
+        const executable = stat?.isFile() && (this.platform === 'win32' ? /\.(exe|com)$/i.test(target) : !!(stat.mode & 0o111));
         if (executable || !stat && !target.includes(path.sep)) command = [target];
-        else if (process.platform === 'darwin' && target.endsWith('.app') && args.length) command = ['open', '-a', target, '--args'];
+        else if (this.platform === 'darwin' && target.endsWith('.app') && args.length) command = ['open', '-a', target, '--args'];
         else { if (args.length || action.terminal) throw new Error('Arguments and terminal mode require an executable application.'); const error = await shell.openPath(target); if (error) throw new Error(error); return; }
       }
     }
@@ -102,7 +106,7 @@ export class Launcher {
     });
   }
   script(action, signal) {
-    if (process.platform === 'win32') throw new Error('Shell script actions currently require Linux or macOS.');
+    if (this.platform === 'win32') throw new Error('Shell script actions currently require Linux or macOS.');
     if (!String(action.script || '').trim()) throw new Error('Enter a shell script.');
     if (signal?.aborted) return Promise.reject(new Error('Canceled'));
     return new Promise((resolve, reject) => {

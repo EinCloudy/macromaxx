@@ -1,24 +1,17 @@
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from './key-text.js';
+import { nativeActionDefinitions } from '../plugins/native/catalog.js';
 export const uid = () => globalThis.crypto.randomUUID();
-export const catalog = [
-  { type: 'hotkey', name: 'Hotkey', icon: 'Keyboard', group: 'System', description: 'Trigger a key combination', defaults: { keys: 'CTRL+SHIFT+M' } },
-  { type: 'url', name: 'Website', icon: 'Globe', group: 'System', description: 'Open a URL in your browser', defaults: { url: 'https://example.com' } },
-  { type: 'app', name: 'Open application', icon: 'AppWindow', group: 'System', description: 'Launch an application or file', defaults: { mode: 'file', path: '', args: '[]', cwd: '', env: '{}', terminal: false } },
-  { type: 'script', name: 'Shell script', icon: 'Terminal', group: 'System', description: 'Run a command or script with arguments', defaults: { shell: '/bin/sh', script: '', args: '[]', cwd: '', env: '{}' } },
-  { type: 'text', name: 'Type text', icon: 'TextCursorInput', group: 'System', description: 'Paste text from the clipboard', defaults: { text: '' } },
-  { type: 'media', name: 'Media controls', icon: 'Music2', group: 'System', description: 'Control playback and volume', defaults: { command: 'playpause', player: 'auto', showTitle: false, showArtist: false, volume: 50, step: 5 } },
-  { type: 'audio', name: 'Audio & microphone', icon: 'Mic', group: 'System', description: 'Linux devices, mute, volume, and push-to-talk', defaults: { kind: 'input', target: 'default', command: 'mute', volume: 5 } },
-  { type: 'desktop', name: 'Desktop & windows', icon: 'Monitor', group: 'System', description: 'Workspaces, windows, and monitors', defaults: { command: 'workspace-next' } },
-  { type: 'sound', name: 'Soundboard', icon: 'Radio', group: 'System', description: 'Play audio to speakers or a virtual microphone', defaults: { command: 'play', path: '', route: 'output', output: 'default', volume: 80, loop: false, behavior: 'restart' } },
-  { type: 'webhook', name: 'Webhook', icon: 'Webhook', group: 'Connections', description: 'Send an HTTP request to your workflow', defaults: { url: '', method: 'POST', headers: '{}', body: '{}' } },
-  { type: 'obs', name: 'OBS Studio', icon: 'Video', group: 'Connections', description: 'Scenes, recording, and streaming', defaults: { command: 'scene', scene: '', input: '' } },
-  { type: 'folder', name: 'Folder', icon: 'Folder', group: 'Organization', description: 'Make room for more actions', defaults: {} },
-  { type: 'profile', name: 'Switch profile', icon: 'Layers', group: 'Organization', description: 'Activate another setup', defaults: { profileId: '' } },
-  { type: 'delay', name: 'Delay', icon: 'Timer', group: 'Workflows', description: 'Add a pause to your action chain', defaults: { ms: 500 } },
-  { type: 'plugin', name: 'Plugin', icon: 'Puzzle', group: 'Extensions', description: 'Run your own JavaScript actions', defaults: { pluginId: 'hello', config: '{}' } },
-];
-export function makeAction(type) { const item = catalog.find(a => a.type === type); if (!item) throw new Error('Unknown action'); return { id: uid(), type, ...structuredClone(item.defaults) }; }
-export function makeKey(type, label) { const item = catalog.find(a => a.type === type); return { id: uid(), label: label || item.name, icon: item.icon, color: '#ad92ff', background: '#242231', image: '', actions: [makeAction(type)], longActions: [], children: [], stopOnError: true }; }
+export const catalog = [...nativeActionDefinitions,
+  { type: 'url', order: 20, name: 'Website', icon: 'Globe', group: 'System', description: 'Open a URL in your browser', defaults: { url: 'https://example.com' } },
+  { type: 'webhook', order: 70, name: 'Webhook', icon: 'Webhook', group: 'Connections', description: 'Send an HTTP request to your workflow', defaults: { url: '', method: 'POST', headers: '{}', body: '{}' } },
+  { type: 'obs', order: 80, name: 'OBS Studio', icon: 'Video', group: 'Connections', description: 'Scenes, recording, and streaming', defaults: { command: 'scene', scene: '', input: '' } },
+  { type: 'folder', order: 90, name: 'Folder', icon: 'Folder', group: 'Organization', description: 'Make room for more actions', defaults: {} },
+  { type: 'profile', order: 100, name: 'Switch profile', icon: 'Layers', group: 'Organization', description: 'Activate another setup', defaults: { profileId: '' } },
+  { type: 'delay', order: 110, name: 'Delay', icon: 'Timer', group: 'Workflows', description: 'Add a pause to your action chain', defaults: { ms: 500 } },
+  { type: 'plugin', order: 120, name: 'Plugin', icon: 'Puzzle', group: 'Extensions', description: 'Run your own JavaScript actions', defaults: { pluginId: 'hello', config: '{}' } },
+].sort((a, b) => a.order - b.order);
+export function makeAction(type, defaults = {}) { const item = catalog.find(a => a.type === type); if (!item) throw new Error('Unknown action'); return { ...structuredClone(item.defaults), ...structuredClone(defaults), id: uid(), type }; }
+export function makeKey(type, label, defaults = {}) { const item = catalog.find(a => a.type === type); return { id: uid(), label: label || item.name, icon: item.icon, color: '#ad92ff', background: '#242231', image: '', actions: [makeAction(type, defaults)], longActions: [], children: [], stopOnError: true }; }
 export function makeProfile(name = 'New profile') { return { id: uid(), name, icon: 'Layers', keys: Array(15).fill(null) }; }
 export function duplicateKey(key) {
   const copy = structuredClone(key); copy.id = uid();
@@ -65,6 +58,7 @@ export function validateState(value) {
   }
   if (value.settings.autoProfileFallback !== undefined && typeof value.settings.autoProfileFallback !== 'string') throw new Error('Invalid automatic-profile fallback.');
   if (value.settings.showShortcut !== undefined && (typeof value.settings.showShortcut !== 'string' || value.settings.showShortcut.length > 128)) throw new Error('Invalid window shortcut.');
+  if (value.settings.disabledNativePlugins !== undefined && (!Array.isArray(value.settings.disabledNativePlugins) || value.settings.disabledNativePlugins.length > 64 || value.settings.disabledNativePlugins.some(id => typeof id !== 'string' || !/^[a-z0-9-]+$/.test(id)))) throw new Error('Invalid native plugin settings.');
   if (value.settings.defaultFontSize !== undefined && (!Number.isInteger(value.settings.defaultFontSize) || value.settings.defaultFontSize < MIN_FONT_SIZE || value.settings.defaultFontSize > MAX_FONT_SIZE)) throw new Error('Invalid default font size.');
   return value;
 }

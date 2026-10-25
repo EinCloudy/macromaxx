@@ -1,0 +1,16 @@
+import React from 'react';
+import { Icon } from '../../../src/icons.jsx';
+import { api } from '../../../src/api.js';
+export function KeyboardSettings({ state, status, change, perform }) {
+  const diag = status.keyboard || {}, platform = status.native?.platform;
+  const call = (operation, ...args) => api.nativeCall('keyboard', operation, ...args);
+  return <section className="settings-card">
+    <div className="settings-title"><span className="action-icon"><Icon name="Keyboard" /></span><div><h3>Native keyboard plugin</h3><p>{diag.backend || 'Not detected'}</p></div><span className={`connection ${status.inputReady ? 'connected' : ''}`}><i />{status.inputReady ? 'Ready' : 'Set up'}</span></div>
+    <p className="settings-description">{diag.wayland ? 'The Linux adapter uses the desktop RemoteDesktop portal and EIS. Only keyboard access is requested. Restore tokens are reused when granted by the desktop.' : platform === 'darwin' ? 'Allow MacroMaxx in System Settings → Privacy & Security → Accessibility and Automation. The macOS adapter supports tap combinations; separate hold/release and some special keys are not implemented.' : platform === 'win32' ? 'The Windows adapter sends native key events through PowerShell. Elevated target applications may reject input from a regular user process.' : 'The X11 adapter requires xdotool for keyboard input.'}</p>
+    <button className="button primary" onClick={() => perform(() => call('setup'), 'Keyboard input is ready.')}>Allow keyboard input</button>
+    <button className="button small" onClick={() => perform(() => call('diagnostics'), 'Keyboard dependencies checked.')}>Check dependencies</button>
+    {diag.wayland && <><label className="checkbox-label"><input type="checkbox" checked={state.settings.rememberWaylandPermission !== false} onChange={e => change(s => { s.settings.rememberWaylandPermission = e.target.checked; })} />Remember and restore keyboard permission</label><button className="button small" onClick={() => perform(() => call('forget'), 'Saved permission forgotten.')}>Forget saved permission</button><p className="muted-text">{diag.savedPermission ? 'Restore token saved privately outside workspace exports.' : 'No restore token saved. Enable persistence in the desktop dialog if offered.'}</p></>}
+    {platform === 'linux' && <div className="setup-steps"><h4>Linux adapter setup</h4><p className="muted-text">If USB access is denied, install the udev rule. This requests your password through the system dialog.</p><button className="button small" onClick={() => perform(() => call('installUdev'), 'USB rule installed. Reconnect the device if needed.')}>Set up USB access</button><p className="muted-text">Wayland needs Python D-Bus, PyGObject, libei, libxkbcommon, and the correct desktop portal backend. X11 needs xdotool.</p><code>{diag.wayland ? 'Debian/Ubuntu: sudo apt install python3-dbus python3-gi libei1 libxkbcommon0' : 'Debian/Ubuntu: sudo apt install xdotool'}</code><code>{diag.wayland ? 'Arch: sudo pacman -S python-dbus python-gobject libei libxkbcommon' : 'Arch: sudo pacman -S xdotool'}</code></div>}
+    <p className="muted-text">Text actions replace the clipboard and paste into the focused application. Permissions and target-application restrictions depend on the OS.</p>
+  </section>;
+}

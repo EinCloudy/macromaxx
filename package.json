@@ -42,14 +42,14 @@
       "electron/**/*",
       "shared/**/*",
       "plugins/**/*",
-      "extensions/**/*",
+      "!**/__pycache__/**",
       "build/icon.png",
       "package.json"
     ],
     "asarUnpack": [
       "**/*.node",
-      "electron/*.py",
-      "electron/*.sh",
+      "plugins/native/**/*.py",
+      "plugins/native/**/*.sh",
       "node_modules/@img/**/*"
     ],
     "linux": {

@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Soundboard, parseModules } from '../electron/soundboard.js';
+import { Soundboard, parseModules } from '../plugins/native/linux-soundboard/service.js';
+import { soundVisual } from '../plugins/native/linux-soundboard/index.js';
 import { isKeyActive } from '../shared/visuals.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { run } from '../electron/commands.js';
-import { Audio } from '../electron/audio.js';
+import { Audio } from '../plugins/native/linux-audio/service.js';
 test('Virtual microphone modules are tracked and removed in reverse dependency order without default changes', async () => {
   const calls = [], modules = []; let next = 10;
   const sound = new Soundboard(() => {}, () => {}, { execute: async (_, args) => {
@@ -41,7 +42,9 @@ test('Virtual microphone rejects monitor feedback loops and rolls back failed se
 test('Stop-all releases active sound processes and removes their live state', async () => {
   const sound = new Soundboard(() => {}, () => {}); let killed = 0;
   sound.sessions.set('one', { id: 'one', actionId: 'action', path: 'sound.wav', children: [{ kill: () => killed++ }], stopped: false });
-  sound.publish(); assert.equal(isKeyActive({ actions: [{ id: 'action', type: 'sound' }] }, null, { soundboard: sound.state }), true);
+  sound.publish();
+  const key = { id: 'sound-key', actions: [{ id: 'action', type: 'sound' }] };
+  assert.equal(isKeyActive(key, null, { native: { visuals: { [key.id]: soundVisual(key, sound.state) } } }), true);
   await sound.play({ command: 'stop-all' }); assert.equal(killed, 1); assert.equal(sound.state.playing.length, 0);
 });
 

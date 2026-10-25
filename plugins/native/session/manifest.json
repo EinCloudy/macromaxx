@@ -1,0 +1,6 @@
+{
+  "id": "session", "type": "bundled-native", "apiVersion": 1, "name": "Native Session",
+  "description": "OS login integration and reopening shortcuts. XDG launchers are a Linux-only feature.",
+  "platforms": ["linux", "win32", "darwin"], "order": 20, "required": true, "main": "index.js", "bootstrap": "bootstrap.cjs",
+  "actions": {}, "legacyOperations": { "installLauncher": "installLauncher" }
+}

@@ -2,6 +2,8 @@
 
 Plugins are small JavaScript modules. Open **Settings → Plugins → Plugin folder** and add a separate folder for each plugin. Click **Reload plugins**, then select the **Plugin** action in the editor.
 
+This page documents the cross-platform **worker plugin API**. Bundled OS integrations have a separate [native plugin API](NATIVE_PLUGINS.md) and [platform support matrix](PLATFORMS.md). Worker plugin code must itself use portable APIs to work on multiple operating systems; adding a native manifest to the user plugin folder does not enable main-process loading.
+
 ## Example
 
 `my-plugin/manifest.json`:

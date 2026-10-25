@@ -1,0 +1,7 @@
+{
+  "id": "keyboard", "type": "bundled-native", "apiVersion": 1, "name": "Native Keyboard",
+  "description": "Keyboard and text input adapters for Linux, Windows, and macOS. Permissions and supported keys differ by OS.",
+  "platforms": ["linux", "win32", "darwin"], "order": 10, "required": true, "main": "index.js",
+  "actions": { "hotkey": "keyboard.hotkey", "text": "keyboard.text" },
+  "legacyOperations": { "diagnostics": "diagnostics", "setupInput": "setup", "forgetInput": "forget", "installUdev": "installUdev" }
+}

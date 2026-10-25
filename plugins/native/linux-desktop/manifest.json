@@ -1,0 +1,6 @@
+{
+  "id": "linux-desktop", "type": "bundled-native", "apiVersion": 1, "name": "Linux Desktop & Focus",
+  "description": "KDE/KWin, GNOME bridge, and X11 window actions and active-application reporting. Backend-specific dependencies apply.",
+  "platforms": ["linux"], "order": 60, "main": "index.js",
+  "actions": { "desktop": "desktop.actions" }, "legacyOperations": { "refreshDesktop": "refresh", "installDesktopExtension": "installExtension" }
+}

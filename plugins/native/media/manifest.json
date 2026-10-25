@@ -1,0 +1,6 @@
+{
+  "id": "media", "type": "bundled-native", "apiVersion": 1, "name": "Native Media",
+  "description": "Linux MPRIS players and volume, Windows media keys, and macOS volume/mute. macOS global playback is not implemented.",
+  "platforms": ["linux", "win32", "darwin"], "order": 40, "main": "index.js",
+  "actions": { "media": "media.controls" }, "legacyOperations": { "refreshMedia": "refresh" }
+}

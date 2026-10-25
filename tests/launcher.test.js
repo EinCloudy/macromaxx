@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
-import { Launcher, argumentsArray, desktopCommand } from '../electron/launcher.js';
+import { Launcher, argumentsArray, desktopCommand } from '../plugins/native/launcher/service.js';
 test('Desktop command quoting and field codes preserve argument boundaries without evaluating shell text', () => {
   assert.deepEqual(desktopCommand({ Exec: '"/opt/My App/run" --name %c %i %U %% "$HOME;echo bad"', Name: 'My App', Icon: 'app', file: '/a.desktop' }), ['/opt/My App/run', '--name', 'My App', '--icon', 'app', '%', '$HOME;echo bad']);
   assert.throws(() => argumentsArray('{"not":"an array"}'), /JSON array/);

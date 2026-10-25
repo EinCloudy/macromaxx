@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Desktop } from '../electron/desktop.js';
+import { Desktop } from '../plugins/native/linux-desktop/service.js';
 test('KDE exposes only detected shortcuts and invokes the native KWin component', async () => {
   const calls = [];
   const desktop = new Desktop(() => {}, {}, { environment: { XDG_CURRENT_DESKTOP: 'KDE', WAYLAND_DISPLAY: 'wayland-1' }, platform: 'linux', execute: async (_, args) => { calls.push(args); return args.at(-1).endsWith('shortcutNames') ? 'Window Minimize\nWindow Close' : ''; } });

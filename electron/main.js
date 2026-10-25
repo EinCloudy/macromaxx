@@ -2,40 +2,30 @@ import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nati
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { Store } from './store.js';
-import { Input } from './input.js';
 import { Devices } from './devices.js';
 import { Plugins } from './plugins.js';
 import { Actions } from './actions.js';
-import { Audio } from './audio.js';
-import { Launcher } from './launcher.js';
-import { Media } from './media.js';
-import { Desktop } from './desktop.js';
-import { FocusMonitor } from './focus.js';
 import { AutoProfiles } from './auto-profiles.js';
-import { Soundboard } from './soundboard.js';
-import { Background } from './background.js';
+import { NativePlugins, prepareNativePlugins } from './native-plugins.js';
 import { validateState } from '../shared/model.js';
-import { isKeyActive, liveKey } from '../shared/visuals.js';
+import { isKeyActive } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
-const exec = promisify(execFile); const dev = process.argv.includes('--dev');
-let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, focus, autoProfiles, soundboard, background, folderPath = [], quitting = false;
+const dev = process.argv.includes('--dev');
+const nativeDirectory = path.join(here, '../plugins/native');
+let win, tray, store, state, devices, plugins, actions, autoProfiles, native, folderPath = [], quitting = false;
 let bootReady = false, showRequested = false, creatingWindow, saveRequest, notifiedBackground = false;
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, soundboard: soundboard?.state, background: background ? { ...background.state, windowVisible: !!win && !win.isDestroyed() && win.isVisible() } : undefined, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ ...native?.snapshot(), device: devices?.info, available: devices?.available || [], obs: actions?.obsState, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
   for (const index of pressed.keys()) emit({ type: 'press', index, down: false });
   pressed.clear(); actions?.cancel();
-  soundboard?.stopAll();
-  void audio?.releaseAll().catch(e => log('error', 'Microphone release', e.message));
-  void input?.releaseAll().catch(e => log('error', 'Keyboard release', e.message));
+  void native?.releaseAll().catch(e => log('error', 'Native input release', e.message));
 }
 async function persist() { await store.save(state); }
 async function navigate(target) {
@@ -86,11 +76,12 @@ async function createMainWindow(show = true) {
       if (quitting) return;
       event.preventDefault();
       if (state.settings.closeToTray) {
-        window.hide(); void flushRenderer();
+        window.hide(); native?.changed(); void flushRenderer();
         if (!notifiedBackground && Notification.isSupported()) { notifiedBackground = true; new Notification({ title: 'MacroMaxx is running in the background', body: 'Open it again from your app launcher, tray, shortcut, or by starting MacroMaxx again.' }).show(); }
       } else app.quit();
     });
-    window.on('closed', () => { if (win === window) win = null; });
+    window.on('closed', () => { if (win === window) win = null; native?.changed(); });
+    for (const event of ['show', 'hide', 'minimize', 'restore']) window.on(event, () => native?.changed());
     if (dev) await window.loadURL('http://127.0.0.1:5173'); else await window.loadFile(path.join(here, '../dist/index.html'));
   })().finally(() => { creatingWindow = null; });
   return creatingWindow;
@@ -102,9 +93,9 @@ async function showMainWindow() {
     if (win && !win.isDestroyed()) win.destroy();
     await createMainWindow(true);
   }
-  if (win.isMinimized()) win.restore(); win.show(); win.focus();
+  if (win.isMinimized()) win.restore(); win.show(); win.focus(); native?.changed();
 }
-app.commandLine.appendSwitch('enable-features', [...new Set([...(app.commandLine.getSwitchValue('enable-features') || '').split(',').filter(Boolean), 'GlobalShortcutsPortal'])].join(','));
+prepareNativePlugins(app, nativeDirectory);
 if (!app.requestSingleInstanceLock()) app.quit();
 else if (process.argv.includes('--quit')) app.quit();
 else {
@@ -113,67 +104,50 @@ else {
   app.whenReady().then(async () => {
     app.setName('MacroMaxx'); store = new Store(app.getPath('userData'));
     try { state = await store.load(); } catch (e) { dialog.showErrorBox('MacroMaxx – Workspace', e.message); app.quit(); return; }
-    input = new Input(status, { tokenFile: path.join(app.getPath('userData'), 'keyboard-permission.json') });
-    audio = new Audio(status);
-    launcher = new Launcher(status); await launcher.scan();
-    media = new Media(status);
-    desktop = new Desktop(status, input); await desktop.probe();
+    native = new NativePlugins(nativeDirectory, {
+      app, shell, clipboard, shortcuts: globalShortcut, getState: () => state, log, onStatus: status,
+      dataDirectory: app.getPath('userData'), tempDirectory: app.getPath('temp'),
+      showWindow: () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); },
+      windowVisible: () => !!win && !win.isDestroyed() && win.isVisible(),
+      reconnectDevice: () => devices?.reconnect(), onFocus: info => autoProfiles?.update(info),
+    });
+    await native.initialize();
     autoProfiles = new AutoProfiles(() => state, id => navigate({ profileId: id, automatic: true }), e => log('error', 'Automatic profile', e.message));
-    focus = new FocusMonitor(path.join(app.getPath('userData'), 'runtime'), desktop, info => { status(); autoProfiles.update(info); });
-    soundboard = new Soundboard(status, e => log('error', 'Soundboard', e.message)); await soundboard.probe();
-    background = new Background({ app, shortcuts: globalShortcut, show: () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); }, onStatus: status }); await background.refresh();
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
-    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => liveKey(slot.key, { media: media.state })), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state, media: media.state, soundboard: soundboard.state }), getSettings: () => state.settings,
+    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => native.renderKey(slot.key)), getBrightness: () => state.settings.brightness, isActive: key => native.visual(key)?.active ?? isKeyActive(key, actions?.obsState), getSettings: () => state.settings,
       onDown: index => {
+        if (quitting) return;
         if (pressed.has(index)) return;
         const key = deckSlots(state, folderPath, devices.info.count)[index]?.key;
         const action = key?.actions?.[0];
         const record = { time: Date.now(), keyId: key?.id };
-        if (action?.type === 'audio' && ['ptt', 'ptm'].includes(action.command)) {
-          record.hold = audio.startHold(action); record.hold.catch(e => log('error', 'Microphone hold', e.message));
-        }
+        const hold = native.beginHold(action);
+        record.hold = hold && hold.catch(e => { log('error', 'Native hold', e.message); return () => {}; });
         pressed.set(index, record); emit({ type: 'press', index, down: true });
       },
       onUp: index => {
         const record = pressed.get(index); pressed.delete(index); emit({ type: 'press', index, down: false });
-        if (record?.hold) record.hold.then(token => audio.releaseHold(token)).catch(e => log('error', 'Microphone release', e.message));
+        if (record?.hold) record.hold.then(release => release()).catch(e => log('error', 'Native release', e.message));
         else if (record && record.keyId === deckSlots(state, folderPath, devices.info.count)[index]?.key?.id) execute(index, Date.now() - record.time > 600).catch(e => log('error', 'Key', e.message));
       }
     });
-    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard });
+    actions = new Actions({ plugins, shell, getState: () => state, navigate, log, updateKey, status, native });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
       save: async (_, next) => {
         validateState(next); const old = state.settings;
-        if (old.showShortcut !== next.settings.showShortcut && !background.shortcut(next.settings.showShortcut || '')) throw new Error(background.state.error);
-        if (old.autostart !== next.settings.autostart || old.startInBackground !== next.settings.startInBackground) await background.autostart(next.settings.autostart, next.settings.startInBackground !== false);
+        await native.beforeSettings(old, next.settings);
         await store.save(next);
         if (state.activeProfileId !== next.activeProfileId) { folderPath = []; autoProfiles.manual(next.activeProfileId); }
-        state = next; await focus.configure(!!state.settings.autoProfiles); autoProfiles.update(focus.state, true); await devices.render(); return true;
+        state = next; await native.configure(old, state.settings); autoProfiles.update(native.snapshot().focus, true); await devices.render(); return true;
       },
       flushComplete: (_, id) => { if (saveRequest?.id === id) saveRequest.finish(); },
-      installLauncher: () => background.installLauncher(),
+      nativeCall: (_, id, operation, ...args) => native.invoke(id, operation, ...args),
       openDataFolder: () => shell.openPath(app.getPath('userData')),
       execute: (_, index, long) => execute(index, long), navigate: (_, target) => navigate(target),
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
-      diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup({ persist: state.settings.rememberWaylandPermission !== false }); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
-      forgetInput: () => input.forget(),
-      refreshAudio: () => audio.refresh(),
-      refreshApplications: () => launcher.scan(),
-      refreshMedia: () => media.refresh(),
-      refreshDesktop: () => desktop.probe(),
-      setupSoundboard: async (_, options) => { const result = await soundboard.setupVirtual(options || {}); await audio.refresh(); return result; },
-      stopSounds: () => soundboard.stopAll(),
-      removeSoundboard: async () => { soundboard.stopAll(); await soundboard.teardown(); await audio.refresh(); },
-      installDesktopExtension: () => desktop.installExtension(path.join(app.getAppPath(), 'extensions/macromaxx@macromaxx.local')),
-      reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); await audio.refresh(); },
-      installUdev: async () => {
-        if (process.platform !== 'linux') throw new Error('Available on Linux only.');
-        const rule = 'SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0fd9", TAG+="uaccess"\n';
-        const source = path.join(app.getPath('temp'), '70-macromaxx-streamdeck.rules'); await fs.writeFile(source, rule);
-        const script = path.join(here, 'install-udev.sh').replace(/app\.asar\//, 'app.asar.unpacked/');
-        await exec('pkexec', ['/bin/sh', script, source], { timeout: 120000 }); await devices.scan(); return true;
-      },
+      ...native.legacyHandlers(),
+      reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); },
       connectOBS: () => actions.connectOBS(), disconnectOBS: () => actions.obs.disconnect(),
       pickFile: async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'] }); return result.canceled ? null : result.filePaths[0]; },
       pickImage: async () => { const r = await dialog.showOpenDialog(win, { filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }], properties: ['openFile'] }); if (r.canceled) return null; const sharp = (await import('sharp')).default; const buffer = await sharp(r.filePaths[0], { limitInputPixels: 20000000 }).resize(256, 256, { fit: 'cover' }).png().toBuffer(); return 'data:image/png;base64,' + buffer.toString('base64'); },
@@ -183,10 +157,14 @@ else {
         const stat = await fs.stat(r.filePaths[0]); if (stat.size > 25000000) throw new Error('File too large (maximum 25 MB).');
         const imported = validateState(JSON.parse(await fs.readFile(r.filePaths[0], 'utf8')));
         const confirm = await dialog.showMessageBox(win, { type: 'question', message: 'Replace the current workspace?', detail: 'The current version will be kept as a backup. Imported actions only run when a key is triggered.', buttons: ['Cancel', 'Import'], defaultId: 0, cancelId: 0 }); if (confirm.response !== 1) return null;
-        imported.settings.autostart = state.settings.autostart; await store.save(imported); state = imported; folderPath = []; publishState(); status(); await devices.render(); return state;
+        const previous = state.settings;
+        imported.settings.autostart = previous.autostart;
+        await native.beforeSettings(previous, imported.settings);
+        await store.save(imported); state = imported; folderPath = [];
+        await native.configure(previous, state.settings); publishState(); status(); await devices.render(); return state;
       },
       plugins: () => plugins.scan(), openPlugins: () => shell.openPath(path.join(app.getPath('userData'), 'plugins')),
-      cancel: async () => { actions.cancel(); soundboard.stopAll(); await Promise.all([input.releaseAll(), audio.releaseAll()]); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)
+      cancel: async () => { actions.cancel(); await native.releaseAll(); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)
     };
     for (const [name, handler] of Object.entries(handlers)) ipcMain.handle('app:' + name, (event, ...args) => { if (event.sender !== win?.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Unauthorized request.'); return handler(event, ...args); });
     // Linux tray implementations reliably accept PNG, rather than SVG buffers.
@@ -196,16 +174,12 @@ else {
       tray = new Tray(nativeImage.createFromBuffer(png)); tray.setToolTip('MacroMaxx'); tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open MacroMaxx', click: () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); } }, { type: 'separator' }, { label: 'Quit', click: () => app.quit() }])); tray.on('click', () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); });
     } catch (e) { log('info', 'System tray', e.message); }
     bootReady = true;
-    await createMainWindow(!process.argv.includes('--background') || process.argv.includes('--show') || showRequested);
-    if (state.settings.autostart) await background.autostart(true, state.settings.startInBackground !== false);
-    if (!background.shortcut(state.settings.showShortcut || '')) log('error', 'Open shortcut', background.state.error);
-    devices.start(); audio.start(); media.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
-    focus.configure(!!state.settings.autoProfiles).catch(e => log('error', 'Focus detection', e.message));
-    if (state.settings.rememberWaylandPermission !== false) input.restore().catch(e => log('error', 'Keyboard permission restore', e.message));
-    powerMonitor.on('suspend', () => { releasePhysicalKeys(); devices.suspend().catch(e => log('error', 'Suspend', e.message)); });
+    await createMainWindow((!process.argv.includes('--background') && !native.shouldStartHidden()) || process.argv.includes('--show') || showRequested);
+    devices.start(); await native.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
+    powerMonitor.on('suspend', () => { releasePhysicalKeys(); Promise.allSettled([devices.suspend(), native.suspend()]).then(status); });
     powerMonitor.on('lock-screen', releasePhysicalKeys);
     powerMonitor.on('resume', () => {
-      Promise.allSettled([devices.resume(), audio.refresh(), media.refresh(), soundboard.probe(), focus.restart(), input.reset().then(() => state.settings.rememberWaylandPermission !== false ? input.restore() : null)]).then(status);
+      Promise.allSettled([devices.resume(), native.resume()]).then(status);
     });
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
@@ -215,8 +189,8 @@ else {
     if (app.cleanupStarted) return;
     app.cleanupStarted = true;
     flushRenderer().finally(() => {
-      actions.close(); plugins.close(); launcher.close(); media.close(); autoProfiles.close(); background.close();
-      Promise.allSettled([input.close(), audio.close(), focus.close(), soundboard.close(), devices.close(), store.queue]).then(() => { app.cleanupDone = true; app.quit(); });
+      actions.close(); plugins.close(); autoProfiles.close();
+      Promise.allSettled([native.close(), devices.close(), store.queue]).then(() => { app.cleanupDone = true; app.quit(); });
     });
   });
   // The close handler decides whether to quit. A destroyed renderer/window

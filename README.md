@@ -2,11 +2,13 @@
 
 A JavaScript/Electron app for Elgato Stream Decks: a visual editor, profiles, folders, action chains, and custom plugins. English interface, light and dark themes, and local storage.
 
+The core is platform-neutral. OS input, application/media/session integration, and Linux-only audio/desktop/routing are **bundled native plugins**, loaded only on compatible platforms. See the [capability matrix](docs/PLATFORMS.md) and [native plugin architecture](docs/NATIVE_PLUGINS.md). Settings lists each provider and its dependencies; unavailable assignments are preserved, not silently executed or deleted.
+
 ## Getting started
 
 ### Background use and reopening
 
-**Settings → Background & reopening** installs a user-local app launcher with Open/Quit actions, offers an optional global show-window shortcut, and controls hidden startup at login. Tray support is optional: starting the executable/AppImage again (or `--show`) opens the existing app, recreating its window if needed. `--background` starts hidden; `--quit` requests normal shutdown and exits immediately if no instance is running. Wayland shortcut registration uses the GlobalShortcuts portal and may require desktop permission. A conflicting/denied shortcut is reported while preserving the previous working binding. Reinstall local launchers/autostart entries if the executable is moved.
+**Settings → Native session plugin** offers OS login integration and an optional show-window shortcut. Its Linux adapter can install a user-local XDG launcher. Tray support is optional: starting the executable/AppImage again (or `--show`) opens the existing app, recreating its window if needed. `--background` starts hidden; `--quit` requests normal shutdown and exits immediately if no instance is running. Shortcut registration is subject to OS permission/conflicts. A denied shortcut preserves the last working binding. Reinstall portable launch entries if the executable moves.
 
 Window hiding and normal shutdown request a renderer-save flush before closing. Hidden renderers continue processing live key-image updates. Closing to tray does not stop native actions, while actual quit releases holds, scripts, sound playback, audio modules, and device handles.
 
@@ -58,11 +60,11 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 **Soundboard** decodes local audio with ffmpeg and plays through PipeWire pw-play. Select an output, a virtual microphone, or both; set volume, looping, and restart/toggle/overlap behavior. A stop-all sound key or **Stop all** stops playback. Keys show live playback state. Sound paths are references, not bundled into workspace exports.
 
-In **Settings → Soundboard**, explicitly create a null sink and a remapped virtual microphone using PipeWire-Pulse/pactl. Optionally mix a physical microphone and monitor the mix on a chosen output. No default audio device is changed. Select **MacroMaxx Virtual Microphone** in your voice app. Leave monitoring disabled to avoid hearing your own microphone. Cleanup removes only module IDs created by this app session, in reverse order; pre-existing shared virtual devices are reused. Routing must be set up again after it is removed or after an audio-server restart.
+In **Settings → Linux soundboard plugin**, explicitly create a null sink and remapped virtual microphone using PipeWire-Pulse/pactl. Optionally mix a physical microphone and monitor the mix on an output. No default device is changed. Select **MacroMaxx Virtual Microphone** in your voice app. Cleanup verifies ownership before removing this session's modules. This adapter and its routing are Linux-only; unsupported systems retain the assignment data.
 
 ### MPRIS players
 
-Media keys can select a specific Linux MPRIS player or automatically prefer a playing one. Browser instance IDs are resolved to the same application when its instance changes. Playback, player volume, title, artist, and live playing-state indicators use playerctl. Optional title labels are transient: your configured label remains saved and returns when metadata is unavailable. System mute/volume commands remain separate from player volume. **Settings → Media players** shows the current players and metadata.
+The **Native Media** plugin can select Linux MPRIS players and display transient track labels. Windows uses basic media-key events; the current macOS adapter provides volume/mute only. The editor offers supported commands and identifies unavailable imported variants. Player-specific metadata/volume are not claimed on systems without an adapter. **Settings → Native media** shows the current capabilities.
 
 ### Applications and scripts
 
@@ -72,7 +74,7 @@ Media keys can select a specific Linux MPRIS player or automatically prefer a pl
 
 ### Linux audio and microphone holds
 
-**Audio & microphone** uses `pactl` with PipeWire-Pulse or PulseAudio. Select a named device or the current system default, toggle mute, set/step volume, select the default input/output, or move all streams of a selected application to an output. External mute/volume changes update the deck indicator. **Settings → Linux audio** lists connected devices and their live state.
+The **Linux Audio & Microphone** plugin uses pactl with PipeWire-Pulse/PulseAudio. It provides device/default selection, mute, volume, application streams, and holds. **Settings → Linux audio plugin** lists live device state. There is no Windows/macOS mixer adapter bundled yet.
 
 For **Push-to-talk** or **Push-to-mute**, put the audio action first on the key. It takes effect on physical key-down and restores the previous microphone state on release, Stop all, or normal app shutdown. Overlapping holds are coordinated. Other actions on that hold key are not executed. No Wayland keyboard permission is needed. Install `pulseaudio-utils` (Debian/Ubuntu) or `libpulse` (Arch) for pactl.
 
@@ -95,15 +97,15 @@ KDE loads a session-local KWin watcher only while this feature is enabled, with 
 
 ### Window and workspace actions
 
-**Desktop & windows** provides workspace changes, minimize/maximize/close, application switching, monitor moves, tiling, and fullscreen where supported. **Settings → Desktop integration** lists the detected backend. KDE uses the available KWin global-shortcut API through qdbus6/qdbus. Other X11 desktops use wmctrl, with xdotool for minimizing/app switching (Show desktop enables the desktop rather than toggling it on X11). Unsupported commands fail explicitly.
+The **Linux Desktop & Focus** plugin provides workspace/window actions where supported. **Settings → Linux desktop plugin** lists its detected backend. KDE uses qdbus/KWin; X11 uses wmctrl/xdotool; GNOME Wayland uses the extension bundled inside the plugin. Other systems retain rules/assignments but need a compatible native provider.
 
 GNOME Wayland requires the bundled **MacroMaxx Desktop Bridge** Shell extension (GNOME 45+). Install it from Settings, log out/in if needed, and enable `macromaxx@macromaxx.local` in Extensions. The bridge exports fixed commands and active-app information; it does not enable arbitrary Shell Eval. It runs with Shell permissions and is optional. KDE and GNOME backends have separate implementations; the GNOME extension needs testing on the installed GNOME version. Other Wayland compositors can use their own configured Hotkey/Script actions.
 
-USB connections are restored by serial number when a dock or hidraw path changes. Suspend releases the deck without playing a shutdown wave; resume reopens it and restores cached artwork without replaying startup. Locking, suspending, or disconnecting releases microphone holds and synthetic held keys. Use **Settings → Keyboard & devices → Reconnect Stream Deck** for a manual rescan. Wayland sessions are reset after resume so stale permissions are not reported as ready.
+USB connections are restored by serial number after path changes. Suspend releases the device without a shutdown wave; resume restores cached artwork. Native plugins receive release/suspend/resume hooks for held keys, audio, playback, and focus. Use **Settings → Stream Deck → Reconnect Stream Deck** for a rescan.
 
 ### Linux / KDE Wayland
 
-Open **Settings → Keyboard & devices → Allow keyboard input** and confirm the native desktop dialog. The app requests keyboard access only. Enable persistence in the desktop dialog if offered. With **Remember and restore keyboard permission** enabled, portal v2 restore tokens are rotated and stored with user-only permissions in `keyboard-permission.json`, outside workspace exports. The app attempts restoration at startup and after resume. Revoked/expired permissions or unsupported desktops may require a new confirmation. **Forget saved permission** closes the session and deletes the local token; desktop-side permission revocation remains available in desktop settings.
+Open **Settings → Native keyboard plugin → Allow keyboard input**. The Linux adapter requests keyboard access only. Portal v2 tokens are rotated and stored privately in `keyboard-permission.json`, outside exports. Restoration is attempted at startup/resume when enabled. Revoked/expired permission may require confirmation again. **Forget saved permission** closes the session and deletes the local token.
 
 Required: `python3`, Python D-Bus, PyGObject, `libei`, `libxkbcommon`, a RemoteDesktop portal implementation, and the desktop's portal backend (`xdg-desktop-portal-kde` on KDE). Modern desktops receive input through EIS/libei, with the current keyboard layout supplied by the compositor. Older portals can use D-Bus input methods.
 
@@ -139,10 +141,11 @@ The app controls one active USB deck. Select a target device if multiple decks a
 ## Project structure
 
 ```text
-electron/     Main process, preload, hardware, actions, portal, and plugins
-src/          React editor and hardware key-image rendering
-shared/       Data model, shared layout, and import validation
-plugins/      Bundled example plugin
+electron/     Platform-neutral core, action runner, device driver, native host
+src/          Platform-neutral editor, layout and key-image rendering
+shared/       Portable model, layout and validation
+plugins/native/  Bundled OS providers, helper processes and plugin-owned UI
+plugins/hello/   Example user-worker plugin
 tests/        Node test suite
 docs/         Plugin documentation
 ```

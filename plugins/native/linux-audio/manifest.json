@@ -1,0 +1,6 @@
+{
+  "id": "linux-audio", "type": "bundled-native", "apiVersion": 1, "name": "Linux Audio & Microphone",
+  "description": "PipeWire-Pulse/PulseAudio mixer, input/output selection, application volume, and microphone holds. Requires pactl.",
+  "platforms": ["linux"], "order": 50, "main": "index.js",
+  "actions": { "audio": "audio.mixer" }, "legacyOperations": { "refreshAudio": "refresh" }
+}

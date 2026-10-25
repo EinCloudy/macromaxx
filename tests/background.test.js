@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { Background, launchCommand } from '../electron/background.js';
+import { Background, launchCommand } from '../plugins/native/session/service.js';
 test('Desktop launch commands escape paths and percent field codes', () => {
   assert.equal(launchCommand('/a b/100%/app', '/project here', false), '"/a b/100%%/app" "/project here"');
 });

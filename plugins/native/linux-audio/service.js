@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { run } from './commands.js';
+import { run } from '../../../electron/commands.js';
 
 const percentage = volume => Math.round(Object.values(volume || {}).reduce((sum, v) => sum + (Number.parseFloat(v.value_percent) || 0), 0) / Math.max(1, Object.keys(volume || {}).length));
 export function normalizeAudio(info, sinks, sources, streams) {

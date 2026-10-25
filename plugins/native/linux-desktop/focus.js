@@ -3,8 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { run } from './commands.js';
-import { desktopHelper } from './desktop.js';
+import { run } from '../../../electron/commands.js';
+import { desktopHelper } from './service.js';
 
 export class FocusMonitor {
   constructor(directory, desktop, onChange) {

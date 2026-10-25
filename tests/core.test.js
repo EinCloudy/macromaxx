@@ -7,7 +7,7 @@ import http from 'node:http';
 import { initialState, makeKey, makeAction, duplicateKey, validateState, visibleKeys } from '../shared/model.js';
 import { Store } from '../electron/store.js';
 import { Actions } from '../electron/actions.js';
-import { parseKeys } from '../electron/input.js';
+import { parseKeys } from '../plugins/native/keyboard/service.js';
 import { Plugins } from '../electron/plugins.js';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
@@ -47,7 +47,7 @@ test('Serialized atomic saves recover from a corrupted primary file', async t =>
 
 function engine(overrides = {}) {
   const events = []; const calls = [];
-  const actions = new Actions({ input: { hotkey: async keys => calls.push(keys) }, plugins: {}, shell: {}, clipboard: {}, getState: initialState, navigate: () => {}, log: (...args) => events.push(args), updateKey: () => {}, status: () => {}, ...overrides });
+  const actions = new Actions({ native: { handles: type => type === 'hotkey', execute: async action => calls.push(action.keys) }, plugins: {}, shell: {}, getState: initialState, navigate: () => {}, log: (...args) => events.push(args), updateKey: () => {}, status: () => {}, ...overrides });
   return { actions, events, calls };
 }
 

@@ -1,5 +1,5 @@
-import { run } from './commands.js';
-import { selectPlayer } from '../shared/players.js';
+import { run } from '../../../electron/commands.js';
+import { selectPlayer } from './players.js';
 export const playerCommands = ['playpause', 'play', 'pause', 'stop', 'next', 'previous', 'player-volume', 'player-volumeup', 'player-volumedown'];
 export class Media {
   constructor(onStatus, execute = run) { this.onStatus = onStatus; this.run = execute; this.state = { available: false, players: [], error: '' }; }

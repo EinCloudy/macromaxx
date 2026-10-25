@@ -1,4 +1,4 @@
-"""JSON-lines bridge to the desktop's keyboard portal (Linux only)."""
+"""Bundled keyboard plugin: JSON-lines bridge to Linux's keyboard portal."""
 import json
 import sys
 import threading

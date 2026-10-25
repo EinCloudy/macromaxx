@@ -1,4 +1,4 @@
-"""Session-local KWin focus receiver. Only KWin may publish application IDs."""
+"""Bundled desktop plugin's KWin receiver. Only KWin may publish application IDs."""
 import json
 import sys
 import threading

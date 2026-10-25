@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Audio } from '../electron/audio.js';
-import { isKeyActive } from '../shared/visuals.js';
+import { Audio } from '../plugins/native/linux-audio/service.js';
 
 function fixture(muted = true) {
   const volume = percent => ({ mono: { value_percent: `${percent}%` } });
@@ -24,7 +23,7 @@ test('Audio snapshots reflect external changes and use stable names for default 
   const { audio, input, commands } = fixture();
   await audio.refresh(); assert.equal(audio.state.inputs[0].mute, true);
   input.mute = false; await audio.refresh();
-  assert.equal(isKeyActive({ actions: [{ type: 'audio', command: 'mute', kind: 'input', target: 'default' }] }, null, { audio: audio.state }), false);
+  assert.equal(audio.state.inputs[0].mute, false);
   await audio.execute({ kind: 'input', target: 'default', command: 'mute' });
   assert.deepEqual(commands[0], ['set-source-mute', 'mic.usb', '1']);
 });

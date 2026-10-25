@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { run } from './commands.js';
-import { desktopCommands, kdeShortcuts } from '../shared/desktop-commands.js';
+import { run } from '../../../electron/commands.js';
+import { desktopCommands, kdeShortcuts } from './commands.js';
 export const desktopHelper = fileURLToPath(new URL('./desktop-bridge.py', import.meta.url)).replace(/app\.asar\//, 'app.asar.unpacked/');
 export class Desktop {
   constructor(onStatus, input, { execute = run, environment = process.env, platform = process.platform } = {}) {

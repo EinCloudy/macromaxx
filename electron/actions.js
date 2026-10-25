@@ -1,19 +1,13 @@
-import { execFile, spawn } from 'node:child_process';
-import fs from 'node:fs/promises';
-import { promisify } from 'node:util';
 import { setTimeout as sleep } from 'node:timers/promises';
-import os from 'node:os';
 import OBSWebSocket from 'obs-websocket-js/json';
-import { playerCommands } from './media.js';
-const exec = promisify(execFile);
 async function limit(promise, ms = 10000) {
   let timer;
   try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('OBS did not respond (request timed out).')), ms); })]); }
   finally { clearTimeout(timer); }
 }
 export class Actions {
-  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard }) {
-    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard });
+  constructor({ plugins, shell, getState, navigate, log, updateKey, status, native }) {
+    Object.assign(this, { plugins, shell, getState, navigate, log, updateKey, status, native });
     this.running = new Map(); this.obs = new OBSWebSocket(); this.obsState = { connected: false, scene: '', recording: false, streaming: false, inputs: [], scenes: [], muted: {} };
     this.obs.on('ConnectionClosed', () => { this.obsState.connected = false; status(); });
     this.obs.on('CurrentProgramSceneChanged', e => { this.obsState.scene = e.sceneName; status(); });
@@ -48,38 +42,9 @@ export class Actions {
     } finally { this.running.delete(key.id); this.status(); }
   }
   async run(action, signal) {
+    if (this.native?.handles(action.type)) return this.native.execute(action, signal);
     switch (action.type) {
-      case 'hotkey': await this.input.hotkey(action.keys, action.mode || 'tap'); break;
-      case 'audio': if (!this.audio) throw new Error('Audio service unavailable.'); await this.audio.execute(action); break;
-      case 'desktop': if (!this.desktop) throw new Error('Desktop service unavailable.'); await this.desktop.execute(action); break;
-      case 'sound': if (!this.soundboard) throw new Error('Soundboard unavailable.'); return this.soundboard.play(action);
       case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Only http, https, and mailto URLs are allowed.'); await this.shell.openExternal(url.href); break; }
-      case 'app': {
-        if (this.launcher) { await this.launcher.launch(action, this.shell); break; }
-        const target = String(action.path || '').replace(/^~(?=$|\/)/, os.homedir());
-        if (!target) throw new Error('Choose an application or file first.');
-        const stat = await fs.stat(target);
-        if (process.platform === 'linux' && target.endsWith('.desktop')) await exec('gio', ['launch', target], { signal });
-        else if (process.platform === 'linux' && stat.isFile() && stat.mode & 0o111) {
-          await new Promise((resolve, reject) => { const child = spawn(target, [], { detached: true, stdio: 'ignore' }); child.once('error', reject); child.once('spawn', () => { child.unref(); resolve(); }); });
-        } else { const error = await this.shell.openPath(target); if (error) throw new Error(error); }
-        break;
-      }
-      case 'text': this.clipboard.writeText(String(action.text || '')); await this.input.hotkey(process.platform === 'darwin' ? 'CMD+V' : 'CTRL+V'); break;
-      case 'script': if (!this.launcher) throw new Error('Script service unavailable.'); return this.launcher.script(action, signal);
-      case 'media': {
-        if (process.platform === 'linux' && this.media && playerCommands.includes(action.command)) { await this.media.execute(action); break; }
-        const key = { playpause: 'PLAYPAUSE', next: 'NEXT', previous: 'PREVIOUS', mute: 'MUTE', volumeup: 'VOLUMEUP', volumedown: 'VOLUMEDOWN' }[action.command];
-        if (!key) throw new Error('Unknown media command');
-        if (process.platform === 'linux' && ['playpause', 'next', 'previous'].includes(action.command)) await exec('playerctl', [action.command === 'playpause' ? 'play-pause' : action.command], { signal });
-        else if (process.platform === 'linux') {
-          const args = action.command === 'mute' ? ['set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle'] : ['set-volume', '-l', '1.5', '@DEFAULT_AUDIO_SINK@', action.command === 'volumeup' ? '5%+' : '5%-'];
-          try { await exec('wpctl', args, { signal }); }
-          catch (e) { if (signal.aborted) throw e; await exec('pactl', action.command === 'mute' ? ['set-sink-mute', '@DEFAULT_SINK@', 'toggle'] : ['set-sink-volume', '@DEFAULT_SINK@', action.command === 'volumeup' ? '+5%' : '-5%'], { signal }); }
-        }
-        else if (process.platform === 'darwin' && ['mute', 'volumeup', 'volumedown'].includes(action.command)) await exec('osascript', ['-e', action.command === 'mute' ? 'set volume output muted not (output muted of (get volume settings))' : `set volume output volume ((output volume of (get volume settings)) ${action.command === 'volumeup' ? '+' : '-'} 5)`], { signal });
-        else await this.input.hotkey(key); break;
-      }
       case 'webhook': {
         const url = new URL(action.url); if (!['http:', 'https:'].includes(url.protocol)) throw new Error('An HTTP or HTTPS URL is required.');
         const headers = JSON.parse(action.headers || '{}'); const method = action.method || 'POST';

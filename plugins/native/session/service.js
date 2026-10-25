@@ -11,7 +11,7 @@ export class Background {
   }
   command() { return launchCommand(this.executable, this.app.getAppPath(), this.app.isPackaged); }
   async refresh() {
-    this.state.launcherInstalled = await fs.access(path.join(this.home, '.local/share/applications/macromaxx-local.desktop')).then(() => true).catch(() => false);
+    this.state.launcherInstalled = this.platform === 'linux' && await fs.access(path.join(this.home, '.local/share/applications/macromaxx-local.desktop')).then(() => true).catch(() => false);
     this.onStatus(); return this.state;
   }
   async installLauncher() {
@@ -25,7 +25,8 @@ export class Background {
     return this.refresh();
   }
   async autostart(enabled, hidden = true) {
-    if (this.platform !== 'linux') { this.app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: hidden }); return; }
+    if (this.platform === 'win32') { this.app.setLoginItemSettings({ openAtLogin: enabled, path: this.executable, args: hidden ? ['--background'] : [] }); return; }
+    if (this.platform === 'darwin') { this.app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: hidden }); return; }
     const directory = path.join(this.home, '.config/autostart'); await fs.mkdir(directory, { recursive: true });
     const file = path.join(directory, 'macromaxx.desktop');
     if (!enabled) { await fs.unlink(file).catch(e => { if (e.code !== 'ENOENT') throw e; }); return; }

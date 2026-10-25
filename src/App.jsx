@@ -8,8 +8,8 @@ import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
-import { AudioEditor, LauncherEditor, ScriptEditor, MediaEditor, DesktopEditor, SoundEditor } from './linux-actions.jsx';
-import { AudioSettings, MediaSettings, DesktopSettings, AutoProfileSettings, SoundSettings, BackgroundSettings } from './linux-settings.jsx';
+import { NativeActionEditor, NativeSettingsPanels, NativePluginsSettings, nativeActionAvailability } from '../plugins/native/ui.jsx';
+import { AutoProfileSettings } from './auto-profile-settings.jsx';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
 const clone = value => structuredClone(value);
@@ -26,14 +26,14 @@ function Field({ label, children, hint }) {
 export default function App() {
   const [state, setState] = useState(null), [status, setStatus] = useState({}), [path, setPath] = useState([]), [selected, setSelected] = useState(0);
   const [page, setPage] = useState('editor'), [tab, setTab] = useState('library'), [search, setSearch] = useState(''), [toast, setToast] = useState(null), [logs, setLogs] = useState([]), [pressed, setPressed] = useState([]), [plugins, setPlugins] = useState([]), [saveState, setSaveState] = useState('Saved');
-  const [history, setHistory] = useState([]), [future, setFuture] = useState([]), [modal, setModal] = useState(null), [draftName, setDraftName] = useState(''), [longMode, setLongMode] = useState(false), [iconPicker, setIconPicker] = useState(false), [diagnostics, setDiagnostics] = useState(null);
+  const [history, setHistory] = useState([]), [future, setFuture] = useState([]), [modal, setModal] = useState(null), [draftName, setDraftName] = useState(''), [longMode, setLongMode] = useState(false), [iconPicker, setIconPicker] = useState(false), [showUnavailable, setShowUnavailable] = useState(false);
   const stateRef = useRef(), saveQueue = useRef(Promise.resolve()), saveTimer = useRef(), toastTimer = useRef(), flushRef = useRef();
   stateRef.current = state;
   const notify = (message, error = false) => { setToast({ message: String(message).replace(/^Error invoking remote method '[^']+': Error: /, ''), error }); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 5000); };
   const perform = async (fn, success) => { try { const result = await fn(); if (success) notify(success); return result; } catch (e) { notify(e.message, true); return null; } };
   useEffect(() => {
     api.init().then(data => { setState(data.state); setStatus(data.status); setPath(data.folderPath); setLogs(data.logs); }).catch(e => notify(e.message, true));
-    api.plugins().then(setPlugins).catch(() => {}); api.diagnostics().then(setDiagnostics).catch(() => {});
+    api.plugins().then(setPlugins).catch(() => {});
     return api.subscribe(event => {
       if (event.type === 'flush') { Promise.resolve(flushRef.current?.()).catch(e => notify(e.message, true)).finally(() => api.flushComplete(event.id)); }
       if (event.type === 'status') setStatus(event.status);
@@ -73,7 +73,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [imageBankIdentity]);
   function editKey(updater) { if (!key) return; change(next => updater(visibleKeys(next, path)[selectedSlot.childIndex])); }
-  function place(type, index = selected) { if (!slots[index]) return; if (slots[index].isBack) return notify('Move the Back key to another slot first.'); change(next => { const list = visibleKeys(next, path); while (list.length < count - offset) list.push(null); list[slots[index].childIndex] = makeKey(type); }); setSelected(index); setTab('edit'); setLongMode(false); }
+  function place(type, index = selected) { if (!slots[index]) return; if (slots[index].isBack) return notify('Move the Back key to another slot first.'); change(next => { const list = visibleKeys(next, path); while (list.length < count - offset) list.push(null); list[slots[index].childIndex] = makeKey(type, undefined, status.native?.actionTypes?.[type]?.defaults); }); setSelected(index); setTab('edit'); setLongMode(false); }
   function drop(event, index) {
     event.preventDefault();
     const type = event.dataTransfer.getData('action'), source = event.dataTransfer.getData('key');
@@ -139,11 +139,11 @@ export default function App() {
         <aside className="action-panel">
           <div className="action-tabs"><button className={tab === 'library' ? 'active' : ''} onClick={() => setTab('library')}><Icon name="Shapes" size={16} />Actions</button><button className={tab === 'edit' ? 'active' : ''} onClick={() => setTab('edit')}><Icon name="SlidersHorizontal" size={16} />Properties</button></div>
           {tab === 'library' ? <>
-            <div className="library-heading"><h3>Your next shortcut</h3><p>Small keys. Big possibilities.</p></div>
+            <div className="library-heading"><h3>Your next shortcut</h3><p>Small keys. Big possibilities.</p><label className="checkbox-label"><input type="checkbox" checked={showUnavailable} onChange={e => setShowUnavailable(e.target.checked)} />Show unavailable actions</label></div>
             <div className="search-input"><Icon name="Search" size={16} /><input placeholder="Search actions …" value={search} onChange={event => setSearch(event.target.value)} aria-label="Search actions" /><kbd>⌕</kbd></div>
             <div className="action-library">{[...new Set(catalog.map(c => c.group))].map(group => {
-              const items = catalog.filter(c => c.group === group && `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase()));
-              return items.length > 0 && <div className="action-group" key={group}><h4>{group}<Icon name="ChevronDown" size={13} /></h4>{items.map(item => <button className="action-card" key={item.type} draggable onDragStart={event => event.dataTransfer.setData('action', item.type)} onClick={() => { if (key) { setDraftName(item.type); setModal('replace'); } else place(item.type); }}><span className={`action-icon ${item.group === 'Connections' ? 'blue' : item.group === 'Organization' ? 'amber' : ''}`}><Icon name={item.icon} size={19} /></span><span><strong>{item.name}</strong><small>{item.description}</small></span><Icon className="drag-handle" name="GripVertical" size={15} /></button>)}</div>;
+              const items = catalog.filter(c => c.group === group && (showUnavailable || nativeActionAvailability(status, { type: c.type }).available) && `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase()));
+              return items.length > 0 && <div className="action-group" key={group}><h4>{group}<Icon name="ChevronDown" size={13} /></h4>{items.map(item => { const availability = nativeActionAvailability(status, { type: item.type }); return <button className="action-card" key={item.type} disabled={!availability.available} title={availability.available ? item.description : availability.reason} draggable={availability.available} onDragStart={event => event.dataTransfer.setData('action', item.type)} onClick={() => { if (key) { setDraftName(item.type); setModal('replace'); } else place(item.type); }}><span className={`action-icon ${item.group === 'Connections' ? 'blue' : item.group === 'Organization' ? 'amber' : ''}`}><Icon name={item.icon} size={19} /></span><span><strong>{item.name}</strong><small>{availability.available ? item.description : `${availability.name}: unavailable on this setup`}</small></span><Icon className="drag-handle" name="GripVertical" size={15} /></button>; })}</div>;
             })}{!catalog.some(c => `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase())) && <div className="empty-detail">No matching actions found.</div>}</div>
             <div className="plugin-callout"><span><Icon name="Puzzle" size={23} /></span><div><strong>Take your deck further.</strong><p>Extend it with your own plugins.</p><button onClick={() => setPage('settings')}>Explore plugins<Icon name="ArrowUpRight" size={13} /></button></div></div>
           </> : key ? <div className="properties">
@@ -157,7 +157,7 @@ export default function App() {
             <div className="segmented"><button className={!longMode ? 'active' : ''} onClick={() => setLongMode(false)}>Short press</button><button className={longMode ? 'active' : ''} onClick={() => setLongMode(true)}>Long press</button></div>
             {longMode && <p className="muted-text">Hold for at least 600 ms. If unassigned, the short-press action is used.</p>}
             {(longMode ? key.longActions : key.actions).map((action, index, all) => <ActionEditor key={action.id} action={action} index={index} total={all.length} state={state} status={status} plugins={plugins} update={patch => editKey(k => Object.assign((longMode ? k.longActions : k.actions)[index], patch))} remove={() => editKey(k => (longMode ? k.longActions : k.actions).splice(index, 1))} move={direction => editKey(k => { const list = longMode ? k.longActions : k.actions; [list[index], list[index + direction]] = [list[index + direction], list[index]]; })} perform={perform} />)}
-            <select aria-label="Add action to chain" className="add-action-select" value="" onChange={event => editKey(k => { (longMode ? k.longActions : k.actions).push(makeAction(event.target.value)); })}><option value="">+ Add action</option>{catalog.filter(c => c.type !== 'folder').map(c => <option key={c.type} value={c.type}>{c.name}</option>)}</select>
+            <select aria-label="Add action to chain" className="add-action-select" value="" onChange={event => editKey(k => { (longMode ? k.longActions : k.actions).push(makeAction(event.target.value, status.native?.actionTypes?.[event.target.value]?.defaults)); })}><option value="">+ Add action</option>{catalog.filter(c => c.type !== 'folder' && nativeActionAvailability(status, { type: c.type }).available).map(c => <option key={c.type} value={c.type}>{c.name}</option>)}</select>
             <label className="checkbox-label"><input type="checkbox" checked={key.stopOnError !== false} onChange={event => editKey(k => { k.stopOnError = event.target.checked; })} />Stop on error</label><Button className="primary full" icon="Play" onClick={() => execute(longMode)}>Test assignment</Button>
           </div> : <div className="properties-empty"><Icon name="MousePointer2" size={32} /><h3>One key, many possibilities.</h3><p>Assign an action to a key first.</p><Button onClick={() => setTab('library')}>Explore actions</Button></div>}
         </aside></div>
@@ -165,7 +165,7 @@ export default function App() {
       </> : page === 'activity' ? <>
         <section className="page-heading"><div><div className="eyebrow">EVERYTHING AT A GLANCE</div><h1>Your workflow, live<span>.</span></h1><p>Executed actions and useful error messages.</p></div><Button icon="Square" onClick={() => perform(() => api.cancel(), 'Action chains canceled')}>Stop all</Button></section>
         <section className="activity-panel"><div className="panel-top"><strong>Activity log</strong><Button className="small" icon="Trash2" onClick={() => setLogs([])}>Clear</Button></div>{logs.length ? logs.map(item => <div className={`log-row ${item.level}`} key={item.id}><span className="log-icon"><Icon name={item.level === 'error' ? 'CircleAlert' : item.level === 'success' ? 'Check' : 'Info'} size={18} /></span><div><strong>{item.title}</strong><p>{item.message}</p></div><time>{new Date(item.time).toLocaleTimeString('en-GB')}</time></div>) : <div className="large-empty"><Icon name="Activity" size={40} /><h3>Ready for your first workflow.</h3><p>Run a key to see its result here.</p></div>}</section>
-      </> : <Settings state={state} status={status} diagnostics={diagnostics} plugins={plugins} change={change} perform={perform} flush={flush} refreshDiagnostics={() => api.diagnostics().then(setDiagnostics)} refreshPlugins={() => api.plugins().then(setPlugins)} />}
+      </> : <Settings state={state} status={status} plugins={plugins} change={change} perform={perform} flush={flush} refreshPlugins={() => api.plugins().then(setPlugins)} />}
     </main>
     {toast && <div role="status" className={`toast ${toast.error ? 'error' : ''}`}><Icon name={toast.error ? 'CircleAlert' : 'CheckCircle2'} size={19} /><span>{toast.message}</span><Tool icon="X" title="Close" onClick={() => setToast(null)} /></div>}
     {modal && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setModal(null); }}><div className="modal" role="dialog" aria-modal="true">
@@ -220,18 +220,13 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
   const select = (name, label, options) => <Field label={label}><select value={action[name] || ''} onChange={e => update({ [name]: e.target.value })}>{options.map(([value, text]) => <option value={value} key={value}>{text}</option>)}</select></Field>;
   return <div className="action-editor">
     <div className="action-editor-head"><span><b>{index + 1}</b><Icon name={item.icon} size={15} />{item.name}</span><div><Tool icon="ChevronUp" title="Move up" disabled={!index} onClick={() => move(-1)} /><Tool icon="ChevronDown" title="Move down" disabled={index === total - 1} onClick={() => move(1)} /><Tool icon="X" title="Remove action" onClick={remove} /></div></div>
+    <NativeActionEditor action={action} update={update} status={status} perform={perform} />
     {action.type === 'hotkey' && <>
       <Field label="Key combination" hint="e.g. CTRL+SHIFT+M, ALT+F4, or META+E"><div className="input-with-button"><input value={recording ? 'Press your keys now …' : action.keys} onChange={e => update({ keys: e.target.value })} onKeyDown={e => { if (!recording) return; e.preventDefault(); const key = e.key; if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return; const tokens = [e.ctrlKey && 'CTRL', e.altKey && 'ALT', e.shiftKey && 'SHIFT', e.metaKey && 'META', ({ ' ': 'SPACE', ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', '+': 'PLUS' }[key] || key.toUpperCase())].filter(Boolean); update({ keys: tokens.join('+') }); setRecording(false); }} /><Tool icon={recording ? 'CircleStop' : 'CircleDot'} title="Record key combination" active={recording} onClick={event => { setRecording(!recording); event.currentTarget.parentElement.querySelector('input').focus(); }} /></div></Field>
       {select('mode', 'Behavior', [['tap', 'Press & release'], ['down', 'Hold down'], ['up', 'Release']])}
     </>}
     {action.type === 'url' && input('url', 'URL', 'https://…')}
-    {action.type === 'audio' && <AudioEditor action={action} update={update} status={status} />}
-    {action.type === 'desktop' && <DesktopEditor action={action} update={update} status={status} />}
-    {action.type === 'sound' && <SoundEditor action={action} update={update} status={status} perform={perform} />}
-    {action.type === 'app' && <LauncherEditor action={action} update={update} status={status} perform={perform} />}
-    {action.type === 'script' && <ScriptEditor action={action} update={update} />}
     {action.type === 'text' && <>{input('text', 'Text', 'Your text …', true)}<p className="muted-text">Copies the text to the clipboard and pastes it with Ctrl+V (Cmd+V on macOS).</p></>}
-    {action.type === 'media' && <MediaEditor action={action} update={update} status={status} />}
     {action.type === 'webhook' && <>{select('method', 'Method', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].map(m => [m, m]))}{input('url', 'Endpoint', 'https://…')}{input('headers', 'Headers (JSON)', '{"Content-Type":"application/json"}', true)}{!['GET', 'HEAD'].includes(action.method) && input('body', 'Request body', '{}', true)}<p className="muted-text">Timeout: 15 seconds. Results appear in Activity.</p></>}
     {action.type === 'delay' && <Field label="Delay in milliseconds"><input type="number" min="0" max="300000" value={action.ms} onChange={e => update({ ms: Number(e.target.value) })} /></Field>}
     {action.type === 'profile' && select('profileId', 'Target profile', [['', 'Choose a profile …'], ...state.profiles.map(p => [p.id, p.name])])}
@@ -246,7 +241,7 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
   </div>;
 }
 
-function Settings({ state, status, diagnostics, plugins, change, perform, flush, refreshDiagnostics, refreshPlugins }) {
+function Settings({ state, status, plugins, change, perform, flush, refreshPlugins }) {
   const [busy, setBusy] = useState('');
   const task = async (name, fn, message) => { setBusy(name); await perform(fn, message); setBusy(''); };
   return <>
@@ -254,25 +249,14 @@ function Settings({ state, status, diagnostics, plugins, change, perform, flush,
     <div className="settings-grid">
       <AnimationSettings state={state} change={change} />
       <TypographySettings state={state} change={change} />
-      <AudioSettings status={status} perform={perform} />
-      <MediaSettings status={status} perform={perform} />
-      <DesktopSettings status={status} perform={perform} />
+      <NativePluginsSettings state={state} status={status} change={change} />
+      <NativeSettingsPanels state={state} status={status} change={change} perform={perform} />
       <AutoProfileSettings state={state} status={status} change={change} />
-      <SoundSettings status={status} perform={perform} />
-      <BackgroundSettings state={state} status={status} change={change} perform={perform} />
       <section className="settings-card">
-        <div className="settings-title"><span className="action-icon"><Icon name="Keyboard" /></span><div><h3>Keyboard & devices</h3><p>{diagnostics?.backend || 'Checking your system …'}</p></div><span className={`connection ${status.inputReady ? 'connected' : ''}`}><i />{status.inputReady ? 'Ready' : 'Set up'}</span></div>
+        <div className="settings-title"><span className="action-icon"><Icon name="Usb" /></span><div><h3>Stream Deck</h3><p>{status.device?.name || 'Virtual device'}</p></div></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}
-        <p className="settings-description">{diagnostics?.wayland ? 'Allow MacroMaxx to send keyboard input using the desktop permission dialog. Persistent permission is reused when your desktop supports and grants it; revoked or expired permissions may need confirmation again. Screen recording is not requested.' : diagnostics?.platform === 'darwin' ? 'Allow MacroMaxx in System Settings → Privacy & Security → Accessibility.' : 'Set up system-wide keyboard input for hotkeys and text actions.'}</p>
-        {diagnostics?.wayland && <><label className="checkbox-label"><input type="checkbox" checked={state.settings.rememberWaylandPermission !== false} onChange={e => change(s => { s.settings.rememberWaylandPermission = e.target.checked; })} />Remember and restore keyboard permission</label><Button className="small" onClick={() => perform(async () => { await api.forgetInput(); await refreshDiagnostics(); }, 'Saved permission forgotten')}>Forget saved permission</Button><p className="muted-text">{diagnostics.savedPermission ? 'A restore token is saved locally, outside workspace exports.' : 'No saved permission yet. Enable persistence in the desktop dialog if offered.'}</p></>}
-        <Button className="primary" icon="KeyRound" disabled={!!busy} onClick={() => task('keyboard', async () => { await api.setupInput(); await refreshDiagnostics(); }, 'Keyboard input is ready.')}>{busy === 'keyboard' ? 'Waiting for permission …' : 'Allow keyboard input'}</Button>
         <Button icon="RefreshCw" disabled={!!busy} onClick={() => task('reconnect', () => api.reconnect(), 'Device scan refreshed')}>Reconnect Stream Deck</Button>
-        {diagnostics?.platform === 'linux' && <div className="setup-steps">
-          <h4>Linux setup</h4><p><b>1.</b> USB access: If the deck cannot connect, install the udev rule. Your system will ask for your password.</p><Button className="small" icon="Usb" disabled={!!busy} onClick={() => task('udev', () => api.installUdev(), 'Rule installed. Unplug and reconnect the deck if needed.')}>Set up USB access</Button>
-          <p><b>2.</b> {diagnostics.wayland ? 'The portal requires Python 3, python-dbus, and PyGObject.' : 'X11 requires xdotool to be installed.'}</p><code>{diagnostics.wayland ? 'Debian/Ubuntu: sudo apt install python3-dbus python3-gi' : 'sudo apt install xdotool'}</code><code>{diagnostics.wayland ? 'Arch: sudo pacman -S python-dbus python-gobject' : 'sudo pacman -S xdotool'}</code>
-          <p><b>3.</b> Media playback on Linux uses playerctl.</p><Button className="small" icon="RefreshCw" onClick={() => perform(refreshDiagnostics, 'System check updated')}>Check again</Button><span className="muted-text">{diagnostics.wayland ? diagnostics.python ? ' ✓ Portal dependencies available' : ' · Portal dependencies missing' : diagnostics.xdotool ? ' ✓ xdotool available' : ' · xdotool missing'}</span>
-        </div>}
-        {diagnostics?.wayland && <div className="setup-steps"><h4>Native Wayland input</h4><p>EIS also requires libei and libxkbcommon. The keyboard layout is provided by your desktop.</p><code>Arch: sudo pacman -S libei libxkbcommon</code><code>Debian/Ubuntu: sudo apt install libei1 libxkbcommon0</code></div>}
+        <p className="muted-text">Hardware discovery, image rendering, brightness, and reconnects use the cross-platform device library. OS permission setup belongs to the native keyboard plugin.</p>
       </section>
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon blue"><Icon name="Video" /></span><div><h3>OBS Studio</h3><p>Your studio, right on your deck.</p></div><span className={`connection ${status.obs?.connected ? 'connected' : ''}`}><i />{status.obs?.connected ? 'Connected' : 'Offline'}</span></div>

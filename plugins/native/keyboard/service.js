@@ -15,14 +15,16 @@ export function parseKeys(value) {
   });
 }
 export class Input {
-  constructor(onStatus, { tokenFile } = {}) { this.onStatus = onStatus; this.tokenFile = tokenFile; this.pending = new Map(); this.held = new Set(); this.ready = false; this.sequence = 0; this.wayland = process.platform === 'linux' && !!process.env.WAYLAND_DISPLAY; }
+  constructor(onStatus, { tokenFile, platform = process.platform, environment = process.env, execute = exec } = {}) { this.onStatus = onStatus; this.tokenFile = tokenFile; this.platform = platform; this.execute = execute; this.pending = new Map(); this.held = new Set(); this.ready = false; this.sequence = 0; this.wayland = platform === 'linux' && !!environment.WAYLAND_DISPLAY; }
   async diagnostics() {
-    let python = false, xdotool = false;
-    if (process.platform === 'linux') {
-      python = await exec('python3', ['-c', 'import dbus; from gi.repository import GLib']).then(() => true).catch(() => false);
-      xdotool = await exec('xdotool', ['--version']).then(() => true).catch(() => false);
+    let python = false, xdotool = false, powershell = false, osascript = false;
+    if (this.platform === 'linux') {
+      python = await this.execute('python3', ['-c', 'import dbus; from gi.repository import GLib']).then(() => true).catch(() => false);
+      xdotool = await this.execute('xdotool', ['--version']).then(() => true).catch(() => false);
     }
-    return { platform: process.platform, wayland: this.wayland, python, xdotool, ready: this.ready, savedPermission: !!(await readPermission(this.tokenFile)), backend: this.wayland ? 'Wayland / Desktop Portal' : process.platform === 'linux' ? 'X11 / xdotool' : process.platform === 'win32' ? 'Windows keyboard input' : 'macOS System Events' };
+    if (this.platform === 'win32') powershell = await this.execute('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.ToString()']).then(() => true).catch(() => false);
+    if (this.platform === 'darwin') osascript = await this.execute('osascript', ['-e', 'return 1']).then(() => true).catch(() => false);
+    return { platform: this.platform, wayland: this.wayland, python, xdotool, powershell, osascript, ready: this.ready, savedPermission: !!(await readPermission(this.tokenFile)), backend: this.wayland ? 'Wayland / Desktop Portal' : this.platform === 'linux' ? 'X11 / xdotool' : this.platform === 'win32' ? 'Windows keyboard input' : 'macOS System Events' };
   }
   rpc(command, payload = {}) {
     if (this.closed) return Promise.reject(new Error('Keyboard service is closed.'));
@@ -55,11 +57,12 @@ export class Input {
         if (persist && result.restoreToken) await writePermission(this.tokenFile, result.restoreToken);
         this.ready = true;
       } catch (error) { await this.reset(); throw error; }
-    } else if (process.platform === 'darwin') {
-      await exec('osascript', ['-e', 'tell application "System Events" to get name']); this.ready = true;
+    } else if (this.platform === 'darwin') {
+      await this.execute('osascript', ['-e', 'tell application "System Events" to get name']); this.ready = true;
     } else {
       const d = await this.diagnostics();
-      if (process.platform === 'linux' && !d.xdotool) throw new Error('Install xdotool first (see setup instructions).');
+      if (this.platform === 'linux' && !d.xdotool) throw new Error('Install xdotool first (see setup instructions).');
+      if (this.platform === 'win32' && !d.powershell) throw new Error('PowerShell is required by the Windows keyboard adapter.');
       this.ready = true;
     }
     this.onStatus(); return this.diagnostics();
@@ -80,23 +83,24 @@ export class Input {
       const down = keys.map(k => [k.code, 1]), up = [...keys].reverse().map(k => [k.code, 0]);
       return this.rpc('keys', { events: mode === 'down' ? down : mode === 'up' ? up : [...down, ...up] });
     }
-    if (process.platform === 'linux') return exec('xdotool', [mode === 'down' ? 'keydown' : mode === 'up' ? 'keyup' : 'key', keys.map(k => ({ CTRL: 'ctrl', CONTROL: 'ctrl', SHIFT: 'shift', ALT: 'alt', META: 'super', SUPER: 'super', CMD: 'super', COMMAND: 'super', ENTER: 'Return', RETURN: 'Return', ESC: 'Escape', ESCAPE: 'Escape', SPACE: 'space', BACKSPACE: 'BackSpace', DELETE: 'Delete', LEFT: 'Left', UP: 'Up', RIGHT: 'Right', DOWN: 'Down', HOME: 'Home', END: 'End', TAB: 'Tab', PAGEUP: 'Page_Up', PAGEDOWN: 'Page_Down', PLUS: 'plus', MINUS: 'minus', COMMA: 'comma', PERIOD: 'period', SLASH: 'slash' }[k.key] || (k.key.length === 1 ? k.key.toLowerCase() : k.key))).join('+')]);
-    if (process.platform === 'darwin') {
-      const modifiers = keys.slice(0, -1).map(k => ({ CTRL: 'control down', CONTROL: 'control down', ALT: 'option down', SHIFT: 'shift down', CMD: 'command down', META: 'command down', SUPER: 'command down' }[k.key]));
+    if (this.platform === 'linux') return this.execute('xdotool', [mode === 'down' ? 'keydown' : mode === 'up' ? 'keyup' : 'key', keys.map(k => ({ CTRL: 'ctrl', CONTROL: 'ctrl', SHIFT: 'shift', ALT: 'alt', META: 'super', SUPER: 'super', CMD: 'super', COMMAND: 'super', ENTER: 'Return', RETURN: 'Return', ESC: 'Escape', ESCAPE: 'Escape', SPACE: 'space', BACKSPACE: 'BackSpace', DELETE: 'Delete', LEFT: 'Left', UP: 'Up', RIGHT: 'Right', DOWN: 'Down', HOME: 'Home', END: 'End', TAB: 'Tab', PAGEUP: 'Page_Up', PAGEDOWN: 'Page_Down', PLUS: 'plus', MINUS: 'minus', COMMA: 'comma', PERIOD: 'period', SLASH: 'slash' }[k.key] || (k.key.length === 1 ? k.key.toLowerCase() : k.key))).join('+')]);
+    if (this.platform === 'darwin') {
+      const modifiers = keys.slice(0, -1).map(k => ({ CTRL: 'control down', CONTROL: 'control down', ALT: 'option down', SHIFT: 'shift down', CMD: 'command down', COMMAND: 'command down', META: 'command down', SUPER: 'command down' }[k.key]));
       if (modifiers.some(m => !m)) throw new Error('Invalid macOS modifier key.');
       if (mode !== 'tap') throw new Error('Holding keys is not supported on macOS.');
       const last = keys.at(-1).key;
-      const codes = { ENTER: 36, TAB: 48, SPACE: 49, BACKSPACE: 51, ESC: 53, DELETE: 117, LEFT: 123, RIGHT: 124, DOWN: 125, UP: 126, F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97, F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111 };
-      if (!codes[last] && last.length !== 1) throw new Error('This key is not yet supported on macOS.');
-      const key = codes[last] ? `key code ${codes[last]}` : `keystroke ${JSON.stringify(last.toLowerCase())}`;
-      return exec('osascript', ['-e', `tell application "System Events" to ${key}${modifiers.length ? ' using {' + modifiers.join(',') + '}' : ''}`]);
+      const codes = { ENTER: 36, RETURN: 36, TAB: 48, SPACE: 49, BACKSPACE: 51, ESC: 53, ESCAPE: 53, DELETE: 117, LEFT: 123, RIGHT: 124, DOWN: 125, UP: 126, F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97, F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111 };
+      const printable = { PLUS: '+', MINUS: '-', COMMA: ',', PERIOD: '.', SLASH: '/' }[last] || (last.length === 1 ? last.toLowerCase() : null);
+      if (!codes[last] && !printable) throw new Error('This key is not yet supported on macOS.');
+      const key = codes[last] ? `key code ${codes[last]}` : `keystroke ${JSON.stringify(printable)}`;
+      return this.execute('osascript', ['-e', `tell application "System Events" to ${key}${modifiers.length ? ' using {' + modifiers.join(',') + '}' : ''}`]);
     }
-    const vk = { CTRL: 17, CONTROL: 17, SHIFT: 16, ALT: 18, META: 91, SUPER: 91, CMD: 91, ENTER: 13, TAB: 9, SPACE: 32, ESC: 27, ESCAPE: 27, BACKSPACE: 8, DELETE: 46, HOME: 36, END: 35, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, PAGEUP: 33, PAGEDOWN: 34, PLAYPAUSE: 179, NEXT: 176, PREVIOUS: 177, MUTE: 173, VOLUMEUP: 175, VOLUMEDOWN: 174 };
+    const vk = { CTRL: 17, CONTROL: 17, SHIFT: 16, ALT: 18, META: 91, SUPER: 91, CMD: 91, COMMAND: 91, ENTER: 13, RETURN: 13, TAB: 9, SPACE: 32, ESC: 27, ESCAPE: 27, BACKSPACE: 8, DELETE: 46, HOME: 36, END: 35, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, PAGEUP: 33, PAGEDOWN: 34, PLAYPAUSE: 179, NEXT: 176, PREVIOUS: 177, MUTE: 173, VOLUMEUP: 175, VOLUMEDOWN: 174 };
     const punctuation = { PLUS: 187, MINUS: 189, COMMA: 188, PERIOD: 190, SLASH: 191, '-': 189, ',': 188, '.': 190, '/': 191 };
     const numbers = keys.map(k => vk[k.key] || punctuation[k.key] || (/^F\d+$/.test(k.key) ? 111 + Number(k.key.slice(1)) : k.key.charCodeAt(0)));
     const down = numbers.map(n => `[MMKeys]::keybd_event(${n},0,0,[UIntPtr]::Zero);`).join('');
     const up = [...numbers].reverse().map(n => `[MMKeys]::keybd_event(${n},0,2,[UIntPtr]::Zero);`).join('');
-    return exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class MMKeys{[DllImport("user32.dll")]public static extern void keybd_event(byte b,byte s,uint f,UIntPtr e);}';${mode === 'down' ? down : mode === 'up' ? up : down + up}`], { windowsHide: true });
+    return this.execute('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class MMKeys{[DllImport("user32.dll")]public static extern void keybd_event(byte b,byte s,uint f,UIntPtr e);}';${mode === 'down' ? down : mode === 'up' ? up : down + up}`], { windowsHide: true });
   }
   async releaseAll() {
     const keys = [...this.held]; this.held.clear();

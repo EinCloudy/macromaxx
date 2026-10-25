@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { readPermission, writePermission, forgetPermission } from '../electron/permissions.js';
-import { Input } from '../electron/input.js';
+import { readPermission, writePermission, forgetPermission } from '../plugins/native/keyboard/permissions.js';
+import { Input } from '../plugins/native/keyboard/service.js';
 
 test('Portal restore tokens rotate privately and can be forgotten', async t => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'macro-permission-')); t.after(() => fs.rm(dir, { recursive: true, force: true }));

@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Media } from '../electron/media.js';
-import { selectPlayer } from '../shared/players.js';
+import { Media } from '../plugins/native/media/service.js';
+import { selectPlayer } from '../plugins/native/media/players.js';
+import { mediaVisual } from '../plugins/native/media/index.js';
 import { liveKey, isKeyActive } from '../shared/visuals.js';
 test('Player resolution prefers playing media and survives browser instance ID changes', () => {
   const state = { players: [{ id: 'vlc', status: 'Paused' }, { id: 'firefox.instance42', status: 'Playing' }] };
@@ -22,7 +23,8 @@ test('MPRIS targets the selected player and updates its title without changing t
   assert.deepEqual(commands[0], ['--player', 'vlc', 'play-pause']);
   await media.execute({ command: 'player-volumeup', player: 'spotify', step: 5 });
   assert.deepEqual(commands[1], ['--player', 'spotify', 'volume', '0.45']);
-  const key = { label: 'Original', actions: [{ type: 'media', command: 'playpause', player: 'spotify', showTitle: true, showArtist: true }] };
-  assert.equal(liveKey(key, { media: media.state }).label, 'Track · Artist');
-  assert.equal(key.label, 'Original'); assert.equal(isKeyActive(key, null, { media: media.state }), true);
+  const key = { id: 'media-key', label: 'Original', actions: [{ type: 'media', command: 'playpause', player: 'spotify', showTitle: true, showArtist: true }] };
+  const live = { native: { visuals: { [key.id]: mediaVisual(key, media.state) } } };
+  assert.equal(liveKey(key, live).label, 'Track · Artist');
+  assert.equal(key.label, 'Original'); assert.equal(isKeyActive(key, null, live), true);
 });

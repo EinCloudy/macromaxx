@@ -14,5 +14,6 @@ export const api = window.macro || {
   refreshDesktop: unavailable, installDesktopExtension: unavailable,
   setupSoundboard: unavailable, stopSounds: unavailable, removeSoundboard: unavailable,
   flushComplete: async () => {}, installLauncher: unavailable, openDataFolder: unavailable,
+  nativeCall: unavailable,
   execute: unavailable, setupInput: unavailable, installUdev: unavailable, connectOBS: unavailable, disconnectOBS: unavailable, importWorkspace: unavailable, exportWorkspace: unavailable, pickFile: unavailable, pickImage: unavailable, openPlugins: unavailable, selectDevice: unavailable, cancel: async () => {}, quit: unavailable,
 };

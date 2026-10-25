@@ -1,4 +1,4 @@
-"""Typed desktop bridge; does not enable GNOME Shell's arbitrary Eval API."""
+"""Bundled desktop plugin's bridge; does not enable GNOME Shell's arbitrary Eval API."""
 import json
 import sys
 import dbus
