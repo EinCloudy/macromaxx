@@ -9,7 +9,7 @@ import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
 import { AudioEditor, LauncherEditor, ScriptEditor, MediaEditor, DesktopEditor, SoundEditor } from './linux-actions.jsx';
-import { AudioSettings, MediaSettings, DesktopSettings, AutoProfileSettings, SoundSettings } from './linux-settings.jsx';
+import { AudioSettings, MediaSettings, DesktopSettings, AutoProfileSettings, SoundSettings, BackgroundSettings } from './linux-settings.jsx';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
 const clone = value => structuredClone(value);
@@ -27,7 +27,7 @@ export default function App() {
   const [state, setState] = useState(null), [status, setStatus] = useState({}), [path, setPath] = useState([]), [selected, setSelected] = useState(0);
   const [page, setPage] = useState('editor'), [tab, setTab] = useState('library'), [search, setSearch] = useState(''), [toast, setToast] = useState(null), [logs, setLogs] = useState([]), [pressed, setPressed] = useState([]), [plugins, setPlugins] = useState([]), [saveState, setSaveState] = useState('Saved');
   const [history, setHistory] = useState([]), [future, setFuture] = useState([]), [modal, setModal] = useState(null), [draftName, setDraftName] = useState(''), [longMode, setLongMode] = useState(false), [iconPicker, setIconPicker] = useState(false), [diagnostics, setDiagnostics] = useState(null);
-  const stateRef = useRef(), saveQueue = useRef(Promise.resolve()), saveTimer = useRef(), toastTimer = useRef();
+  const stateRef = useRef(), saveQueue = useRef(Promise.resolve()), saveTimer = useRef(), toastTimer = useRef(), flushRef = useRef();
   stateRef.current = state;
   const notify = (message, error = false) => { setToast({ message: String(message).replace(/^Error invoking remote method '[^']+': Error: /, ''), error }); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(null), 5000); };
   const perform = async (fn, success) => { try { const result = await fn(); if (success) notify(success); return result; } catch (e) { notify(e.message, true); return null; } };
@@ -35,6 +35,7 @@ export default function App() {
     api.init().then(data => { setState(data.state); setStatus(data.status); setPath(data.folderPath); setLogs(data.logs); }).catch(e => notify(e.message, true));
     api.plugins().then(setPlugins).catch(() => {}); api.diagnostics().then(setDiagnostics).catch(() => {});
     return api.subscribe(event => {
+      if (event.type === 'flush') { Promise.resolve(flushRef.current?.()).catch(e => notify(e.message, true)).finally(() => api.flushComplete(event.id)); }
       if (event.type === 'status') setStatus(event.status);
       if (event.type === 'state') { setState(event.state); setPath(event.folderPath); setSelected(0); setHistory([]); setFuture([]); }
       if (event.type === 'log') setLogs(items => [event.item, ...items].slice(0, 200));
@@ -42,7 +43,8 @@ export default function App() {
     });
   }, []);
   const queueSave = next => { setSaveState('Saving …'); clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => { saveQueue.current = saveQueue.current.catch(() => {}).then(() => api.save(next)).then(() => setSaveState('Saved')).catch(e => { setSaveState('Save failed'); notify(e.message, true); }); }, 250); };
-  const flush = async () => { clearTimeout(saveTimer.current); await saveQueue.current.catch(() => {}); if (stateRef.current) await api.save(stateRef.current); };
+  const flush = async () => { clearTimeout(saveTimer.current); await saveQueue.current.catch(() => {}); if (stateRef.current) await api.save(stateRef.current); setSaveState('Saved'); };
+  flushRef.current = flush;
   const change = updater => { const old = stateRef.current; const next = clone(old); updater(next); setHistory(items => [...items.slice(-39), old]); setFuture([]); stateRef.current = next; setState(next); queueSave(next); };
   const undo = () => { if (!history.length) return; const previous = history.at(-1); setFuture(items => [state, ...items]); setHistory(items => items.slice(0, -1)); setState(previous); queueSave(previous); };
   const redo = () => { if (!future.length) return; const next = future[0]; setHistory(items => [...items, state]); setFuture(items => items.slice(1)); setState(next); queueSave(next); };
@@ -257,6 +259,7 @@ function Settings({ state, status, diagnostics, plugins, change, perform, flush,
       <DesktopSettings status={status} perform={perform} />
       <AutoProfileSettings state={state} status={status} change={change} />
       <SoundSettings status={status} perform={perform} />
+      <BackgroundSettings state={state} status={status} change={change} perform={perform} />
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Keyboard" /></span><div><h3>Keyboard & devices</h3><p>{diagnostics?.backend || 'Checking your system …'}</p></div><span className={`connection ${status.inputReady ? 'connected' : ''}`}><i />{status.inputReady ? 'Ready' : 'Set up'}</span></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}

@@ -43,6 +43,7 @@
       "shared/**/*",
       "plugins/**/*",
       "extensions/**/*",
+      "build/icon.png",
       "package.json"
     ],
     "asarUnpack": [

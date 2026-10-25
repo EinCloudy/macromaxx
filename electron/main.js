@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage, powerMonitor } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage, powerMonitor, globalShortcut, Notification } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -16,16 +16,18 @@ import { Desktop } from './desktop.js';
 import { FocusMonitor } from './focus.js';
 import { AutoProfiles } from './auto-profiles.js';
 import { Soundboard } from './soundboard.js';
+import { Background } from './background.js';
 import { validateState } from '../shared/model.js';
 import { isKeyActive, liveKey } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exec = promisify(execFile); const dev = process.argv.includes('--dev');
-let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, focus, autoProfiles, soundboard, folderPath = [], quitting = false;
+let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, focus, autoProfiles, soundboard, background, folderPath = [], quitting = false;
+let bootReady = false, showRequested = false, creatingWindow, saveRequest, notifiedBackground = false;
 let logs = [], pressed = new Map();
-const emit = event => { if (win && !win.isDestroyed()) win.webContents.send('app:event', event); };
+const emit = event => { if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, soundboard: soundboard?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, soundboard: soundboard?.state, background: background?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
@@ -63,17 +65,51 @@ function updateKey(id, change) {
   function visit(keys) { for (const key of keys) if (key) { if (key.id === id) { if (typeof change.label === 'string') key.label = change.label.slice(0, 80); if (/^#[0-9a-f]{6}$/i.test(change.color)) key.color = change.color; } visit(key.children || []); } }
   state.profiles.forEach(p => visit(p.keys)); publishState(); persist().catch(e => log('error', 'Save', e.message));
 }
-async function autostart(enabled) {
-  if (process.platform !== 'linux') { app.setLoginItemSettings({ openAtLogin: enabled }); return; }
-  const dir = path.join(app.getPath('home'), '.config', 'autostart'); await fs.mkdir(dir, { recursive: true }); const file = path.join(dir, 'macromaxx.desktop');
-  if (!enabled) { await fs.unlink(file).catch(e => { if (e.code !== 'ENOENT') throw e; }); return; }
-  const quote = s => '"' + s.replace(/["`$\\]/g, '\\$&') + '"';
-  const command = app.isPackaged ? quote(process.env.APPIMAGE || process.execPath) : `${quote(process.execPath)} ${quote(app.getAppPath())}`;
-  await fs.writeFile(file, `[Desktop Entry]\nType=Application\nName=MacroMaxx\nExec=${command}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n`);
+function flushRenderer() {
+  if (saveRequest) return saveRequest.promise;
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return Promise.resolve();
+  const id = crypto.randomUUID(); let finish;
+  const promise = new Promise(resolve => { finish = resolve; });
+  const timer = setTimeout(() => { saveRequest = null; finish(); }, 2000);
+  saveRequest = { id, promise, finish: () => { clearTimeout(timer); saveRequest = null; finish(); } };
+  emit({ type: 'flush', id }); return promise;
 }
+async function createMainWindow(show = true) {
+  if (creatingWindow) return creatingWindow;
+  creatingWindow = (async () => {
+    const window = new BrowserWindow({ width: 1500, height: 960, minWidth: 1120, minHeight: 740, show, backgroundColor: '#101114', title: 'MacroMaxx', autoHideMenuBar: true, webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
+    win = window;
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    window.webContents.on('will-navigate', (event, url) => { if (url !== window.webContents.getURL()) event.preventDefault(); });
+    window.webContents.session.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [dev ? "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:5173; object-src 'none'" : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'"] } }));
+    window.on('close', event => {
+      if (quitting) return;
+      event.preventDefault();
+      if (state.settings.closeToTray) {
+        window.hide(); void flushRenderer();
+        if (!notifiedBackground && Notification.isSupported()) { notifiedBackground = true; new Notification({ title: 'MacroMaxx is running in the background', body: 'Open it again from your app launcher, tray, shortcut, or by starting MacroMaxx again.' }).show(); }
+      } else app.quit();
+    });
+    window.on('closed', () => { if (win === window) win = null; });
+    if (dev) await window.loadURL('http://127.0.0.1:5173'); else await window.loadFile(path.join(here, '../dist/index.html'));
+  })().finally(() => { creatingWindow = null; });
+  return creatingWindow;
+}
+async function showMainWindow() {
+  if (quitting) return;
+  if (!bootReady) { showRequested = true; return; }
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) {
+    if (win && !win.isDestroyed()) win.destroy();
+    await createMainWindow(true);
+  }
+  if (win.isMinimized()) win.restore(); win.show(); win.focus();
+}
+app.commandLine.appendSwitch('enable-features', [...new Set([...(app.commandLine.getSwitchValue('enable-features') || '').split(',').filter(Boolean), 'GlobalShortcutsPortal'])].join(','));
 if (!app.requestSingleInstanceLock()) app.quit();
+else if (process.argv.includes('--quit')) app.quit();
 else {
-  app.on('second-instance', () => { win?.show(); win?.focus(); });
+  app.on('second-instance', (_, argv) => { if (argv.includes('--quit')) app.quit(); else if (!argv.includes('--background')) showMainWindow().catch(e => log('error', 'Open window', e.message)); });
+  app.on('activate', () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); });
   app.whenReady().then(async () => {
     app.setName('MacroMaxx'); store = new Store(app.getPath('userData'));
     try { state = await store.load(); } catch (e) { dialog.showErrorBox('MacroMaxx – Workspace', e.message); app.quit(); return; }
@@ -85,6 +121,7 @@ else {
     autoProfiles = new AutoProfiles(() => state, id => navigate({ profileId: id, automatic: true }), e => log('error', 'Automatic profile', e.message));
     focus = new FocusMonitor(path.join(app.getPath('userData'), 'runtime'), desktop, info => { status(); autoProfiles.update(info); });
     soundboard = new Soundboard(status, e => log('error', 'Soundboard', e.message)); await soundboard.probe();
+    background = new Background({ app, shortcuts: globalShortcut, show: () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); }, onStatus: status }); await background.refresh();
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => liveKey(slot.key, { media: media.state })), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state, media: media.state, soundboard: soundboard.state }), getSettings: () => state.settings,
       onDown: index => {
@@ -106,7 +143,17 @@ else {
     actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
-      save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) { folderPath = []; autoProfiles.manual(next.activeProfileId); } state = next; await focus.configure(!!state.settings.autoProfiles); autoProfiles.update(focus.state, true); await devices.render(); return true; },
+      save: async (_, next) => {
+        validateState(next); const old = state.settings;
+        if (old.showShortcut !== next.settings.showShortcut && !background.shortcut(next.settings.showShortcut || '')) throw new Error(background.state.error);
+        if (old.autostart !== next.settings.autostart || old.startInBackground !== next.settings.startInBackground) await background.autostart(next.settings.autostart, next.settings.startInBackground !== false);
+        await store.save(next);
+        if (state.activeProfileId !== next.activeProfileId) { folderPath = []; autoProfiles.manual(next.activeProfileId); }
+        state = next; await focus.configure(!!state.settings.autoProfiles); autoProfiles.update(focus.state, true); await devices.render(); return true;
+      },
+      flushComplete: (_, id) => { if (saveRequest?.id === id) saveRequest.finish(); },
+      installLauncher: () => background.installLauncher(),
+      openDataFolder: () => shell.openPath(app.getPath('userData')),
       execute: (_, index, long) => execute(index, long), navigate: (_, target) => navigate(target),
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
       diagnostics: () => input.diagnostics(), setupInput: async () => { try { return await input.setup({ persist: state.settings.rememberWaylandPermission !== false }); } catch (e) { log('error', 'Keyboard setup', e.message); throw e; } },
@@ -142,16 +189,16 @@ else {
       cancel: async () => { actions.cancel(); soundboard.stopAll(); await Promise.all([input.releaseAll(), audio.releaseAll()]); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)
     };
     for (const [name, handler] of Object.entries(handlers)) ipcMain.handle('app:' + name, (event, ...args) => { if (event.sender !== win?.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Unauthorized request.'); return handler(event, ...args); });
-    win = new BrowserWindow({ width: 1500, height: 960, minWidth: 1120, minHeight: 740, backgroundColor: '#101114', title: 'MacroMaxx', autoHideMenuBar: true, webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
-    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    win.webContents.on('will-navigate', (event, url) => { if (url !== win.webContents.getURL()) event.preventDefault(); });
-    win.webContents.session.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [dev ? "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:5173; object-src 'none'" : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'"] } }));
     // Linux tray implementations reliably accept PNG, rather than SVG buffers.
     const sharp = (await import('sharp')).default;
     const png = await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="16" fill="#ad92ff"/><path d="M16 44V20l16 16 16-16v24" fill="none" stroke="#15121c" stroke-width="6"/></svg>')).png().toBuffer();
-    tray = new Tray(nativeImage.createFromBuffer(png)); tray.setToolTip('MacroMaxx'); tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open MacroMaxx', click: () => win.show() }, { type: 'separator' }, { label: 'Quit', click: () => { quitting = true; app.quit(); } }])); tray.on('click', () => win.show());
-    win.on('close', event => { if (!quitting && state.settings.closeToTray) { event.preventDefault(); win.hide(); } });
-    if (dev) await win.loadURL('http://127.0.0.1:5173'); else await win.loadFile(path.join(here, '../dist/index.html'));
+    try {
+      tray = new Tray(nativeImage.createFromBuffer(png)); tray.setToolTip('MacroMaxx'); tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open MacroMaxx', click: () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); } }, { type: 'separator' }, { label: 'Quit', click: () => app.quit() }])); tray.on('click', () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); });
+    } catch (e) { log('info', 'System tray', e.message); }
+    bootReady = true;
+    await createMainWindow(!process.argv.includes('--background') || process.argv.includes('--show') || showRequested);
+    if (state.settings.autostart) await background.autostart(true, state.settings.startInBackground !== false);
+    if (!background.shortcut(state.settings.showShortcut || '')) log('error', 'Open shortcut', background.state.error);
     devices.start(); audio.start(); media.start(); if (store.recovery) log('info', 'Recovery', store.recovery);
     focus.configure(!!state.settings.autoProfiles).catch(e => log('error', 'Focus detection', e.message));
     if (state.settings.rememberWaylandPermission !== false) input.restore().catch(e => log('error', 'Keyboard permission restore', e.message));
@@ -167,15 +214,12 @@ else {
     event.preventDefault();
     if (app.cleanupStarted) return;
     app.cleanupStarted = true;
-    actions.close();
-    plugins.close();
-    launcher.close();
-    media.close();
-    autoProfiles.close();
-    Promise.allSettled([input.close(), audio.close(), focus.close(), soundboard.close(), devices.close(), store.queue]).then(() => {
-      app.cleanupDone = true;
-      app.quit();
+    flushRenderer().finally(() => {
+      actions.close(); plugins.close(); launcher.close(); media.close(); autoProfiles.close(); background.close();
+      Promise.allSettled([input.close(), audio.close(), focus.close(), soundboard.close(), devices.close(), store.queue]).then(() => { app.cleanupDone = true; app.quit(); });
     });
   });
-  app.on('window-all-closed', () => { if (!state?.settings.closeToTray) app.quit(); });
+  // The close handler decides whether to quit. A destroyed renderer/window
+  // must not prevent reopening the still-running device controller.
+  app.on('window-all-closed', () => {});
 }

@@ -39,3 +39,14 @@ export function SoundSettings({ status, perform }) {
     <p className="muted-text">Select MacroMaxx Virtual Microphone in Discord, OBS, or another voice app. Setup never changes your default input/output. Only modules created by this app session are removed on cleanup. Existing shared virtual devices are reused. Monitoring includes the physical microphone if mixed; leave it disabled to avoid hearing yourself.</p>
   </section>;
 }
+export function BackgroundSettings({ state, status, change, perform }) {
+  const [shortcut, setShortcut] = React.useState(state.settings.showShortcut || '');
+  React.useEffect(() => setShortcut(state.settings.showShortcut || ''), [state.settings.showShortcut]);
+  return <section className="settings-card"><div className="settings-title"><span className="action-icon"><Icon name="AppWindow" /></span><div><h3>Background & reopening</h3><p>Keep control without depending on a tray extension.</p></div></div>
+    <label className="checkbox-label"><input type="checkbox" checked={state.settings.startInBackground !== false} onChange={e => change(s => { s.settings.startInBackground = e.target.checked; })} />Start hidden when launched at login</label>
+    <label className="field"><span>Optional global shortcut to open MacroMaxx</span><input placeholder="CommandOrControl+Shift+Space" value={shortcut} onChange={e => setShortcut(e.target.value)} onBlur={() => { if (shortcut !== (state.settings.showShortcut || '')) change(s => { s.settings.showShortcut = shortcut.trim(); }); }} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} /></label>
+    <p className="muted-text">Active shortcut: {status.background?.shortcut || 'None'}. {status.background?.error || 'Wayland may ask for shortcut permission. Leave empty to disable.'}</p>
+    <div className="tool-row"><button className="button" onClick={() => perform(() => api.installLauncher(), 'Local application launcher installed.')}>Install application launcher</button><button className="button" onClick={() => perform(() => api.openDataFolder())}>Open data folder</button></div>
+    <p className="muted-text">{status.background?.launcherInstalled ? 'Local launcher installed.' : 'Install a launcher to reopen the app easily from GNOME or other desktops without a tray.'} Starting MacroMaxx again, --show, or an app-launcher click opens the existing window. --quit requests normal shutdown; --background starts hidden. If you move the AppImage/executable, reinstall the launcher and reapply autostart.</p>
+  </section>;
+}

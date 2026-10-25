@@ -4,6 +4,12 @@ A JavaScript/Electron app for Elgato Stream Decks: a visual editor, profiles, fo
 
 ## Getting started
 
+### Background use and reopening
+
+**Settings → Background & reopening** installs a user-local app launcher with Open/Quit actions, offers an optional global show-window shortcut, and controls hidden startup at login. Tray support is optional: starting the executable/AppImage again (or `--show`) opens the existing app, recreating its window if needed. `--background` starts hidden; `--quit` requests normal shutdown and exits immediately if no instance is running. Wayland shortcut registration uses the GlobalShortcuts portal and may require desktop permission. A conflicting/denied shortcut is reported while preserving the previous working binding. Reinstall local launchers/autostart entries if the executable is moved.
+
+Window hiding and normal shutdown request a renderer-save flush before closing. Hidden renderers continue processing live key-image updates. Closing to tray does not stop native actions, while actual quit releases holds, scripts, sound playback, audio modules, and device handles.
+
 Requirements: **Node.js 22.12+**, npm, and a graphical desktop session.
 
 ```sh
