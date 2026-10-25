@@ -46,7 +46,7 @@ export function MediaEditor({ action, update, status }) {
   </>;
 }
 export function Select({ label, value, options, onChange }) {
-  return <label className="field"><span>{label}</span><select value={value} onChange={e => onChange(e.target.value)}>{options.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>;
+  return <label className="field"><span>{label}</span><select aria-label={label} value={value} onChange={e => onChange(e.target.value)}>{options.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>;
 }
 export function AudioEditor({ action, update, status }) {
   const audio = status.audio || {}, kind = action.kind || 'input';
