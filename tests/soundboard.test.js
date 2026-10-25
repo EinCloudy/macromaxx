@@ -7,9 +7,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { run } from '../electron/commands.js';
 test('Virtual microphone modules are tracked and removed in reverse dependency order without default changes', async () => {
-  const calls = []; let next = 10;
+  const calls = [], modules = []; let next = 10;
   const sound = new Soundboard(() => {}, () => {}, { execute: async (_, args) => {
-    calls.push(args); if (args[0] === 'load-module') return String(next++);
+    calls.push(args); if (args[0] === 'load-module') { const id = next++; modules.push({ index: id, name: args[1], argument: args.slice(2).join(' ') }); return String(id); }
+    if (args.includes('modules')) return JSON.stringify(modules);
     if (args.includes('sinks')) return '[{"name":"speaker"}]';
     if (args.includes('sources')) return '[{"name":"mic"}]'; return '';
   } });
@@ -18,6 +19,13 @@ test('Virtual microphone modules are tracked and removed in reverse dependency o
   assert.ok(calls.every(args => !args[0].startsWith('set-default')));
   await sound.close();
   assert.deepEqual(calls.filter(args => args[0] === 'unload-module').map(args => args[1]), ['13', '12', '11', '10']);
+});
+
+test('Cleanup does not unload an unrelated module that reused an old server ID', async () => {
+  const calls = [];
+  const sound = new Soundboard(() => {}, () => {}, { execute: async (_, args) => { calls.push(args); return '[{"index":10,"name":"module-null-sink","argument":"sink_name=someone_else"}]'; } });
+  sound.modules = ['10']; sound.ownedModules.set('10', { name: 'module-null-sink', identity: ['sink_name=macromaxx_soundboard'] });
+  await sound.teardown(); assert.equal(calls.some(args => args[0] === 'unload-module'), false);
 });
 test('Virtual microphone rejects monitor feedback loops and rolls back failed setup', async () => {
   const sound = new Soundboard(() => {}, () => {}, { execute: async (_, args) => args.includes('sources') ? '[{"name":"macromaxx_microphone"}]' : '[]' });

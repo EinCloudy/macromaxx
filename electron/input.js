@@ -25,6 +25,7 @@ export class Input {
     return { platform: process.platform, wayland: this.wayland, python, xdotool, ready: this.ready, savedPermission: !!(await readPermission(this.tokenFile)), backend: this.wayland ? 'Wayland / Desktop Portal' : process.platform === 'linux' ? 'X11 / xdotool' : process.platform === 'win32' ? 'Windows keyboard input' : 'macOS System Events' };
   }
   rpc(command, payload = {}) {
+    if (this.closed) return Promise.reject(new Error('Keyboard service is closed.'));
     if (!this.child) {
       this.child = spawn('python3', [fileURLToPath(new URL('./portal.py', import.meta.url)).replace(/app\.asar\//, 'app.asar.unpacked/')], { stdio: ['pipe', 'pipe', 'pipe'] });
       const child = this.child;
@@ -37,9 +38,10 @@ export class Input {
       this.child.on('error', stopped); this.child.on('exit', () => stopped());
       this.child.stdin.on('error', () => {});
     }
-    return new Promise((resolve, reject) => { const id = ++this.sequence; const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('Desktop portal did not respond.')); }, 125000); this.pending.set(id, { resolve, reject, timer }); this.child.stdin.write(JSON.stringify({ id, command, ...payload }) + '\n'); });
+    return new Promise((resolve, reject) => { const id = ++this.sequence; const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('Desktop portal did not respond.')); }, command === 'setup' ? 125000 : 3000); this.pending.set(id, { resolve, reject, timer }); this.child.stdin.write(JSON.stringify({ id, command, ...payload }) + '\n'); });
   }
   setup(options = {}) {
+    if (this.closing || this.closed) return Promise.reject(new Error('Keyboard service is closing.'));
     if (!this.setupPromise) this.setupPromise = this.performSetup(options).finally(() => { this.setupPromise = null; });
     return this.setupPromise;
   }
@@ -47,6 +49,7 @@ export class Input {
     if (this.wayland) {
       if (!persist) await forgetPermission(this.tokenFile);
       const restoreToken = persist ? await readPermission(this.tokenFile) : null;
+      if (this.closing || this.closed) throw new Error('Keyboard service is closing.');
       try {
         const result = await this.rpc('setup', { persist, restoreToken });
         if (persist && result.restoreToken) await writePermission(this.tokenFile, result.restoreToken);
@@ -61,7 +64,7 @@ export class Input {
     }
     this.onStatus(); return this.diagnostics();
   }
-  async restore() { if (this.wayland && await readPermission(this.tokenFile)) return this.setup(); }
+  async restore() { if (!this.closing && !this.closed && this.wayland && await readPermission(this.tokenFile)) return this.setup(); }
   async forget() { await this.reset(); await forgetPermission(this.tokenFile); return this.diagnostics(); }
   async hotkey(value, mode = 'tap') {
     if (!['tap', 'down', 'up'].includes(mode)) throw new Error('Invalid hotkey behavior.');
@@ -95,7 +98,13 @@ export class Input {
     const up = [...numbers].reverse().map(n => `[MMKeys]::keybd_event(${n},0,2,[UIntPtr]::Zero);`).join('');
     return exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class MMKeys{[DllImport("user32.dll")]public static extern void keybd_event(byte b,byte s,uint f,UIntPtr e);}';${mode === 'down' ? down : mode === 'up' ? up : down + up}`], { windowsHide: true });
   }
-  async releaseAll() { for (const key of [...this.held].reverse()) await this.hotkey(key, 'up').catch(() => {}); this.held.clear(); }
+  async releaseAll() {
+    const keys = [...this.held]; this.held.clear();
+    for (let i = keys.length; i > 0; i -= 8) {
+      try { await this.hotkey(keys.slice(Math.max(0, i - 8), i).join('+'), 'up'); }
+      catch { this.ready = false; this.onStatus(); break; }
+    }
+  }
   async reset() {
     await this.releaseAll();
     const child = this.child;
@@ -107,5 +116,5 @@ export class Input {
     if (this.child === child) this.child = null;
     this.ready = false; this.onStatus();
   }
-  async close() { await this.releaseAll(); this.child?.kill(); }
+  async close() { this.closing = true; await this.releaseAll(); this.closed = true; this.child?.kill(); }
 }

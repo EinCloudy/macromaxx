@@ -6,7 +6,7 @@ import { run } from './commands.js';
 export class Soundboard {
   constructor(onStatus, onError, { execute = run, launch = spawn } = {}) {
     this.onStatus = onStatus; this.onError = onError; this.run = execute; this.spawn = launch;
-    this.sink = 'macromaxx_soundboard'; this.source = 'macromaxx_microphone'; this.modules = []; this.sessions = new Map();
+    this.sink = 'macromaxx_soundboard'; this.source = 'macromaxx_microphone'; this.modules = []; this.ownedModules = new Map(); this.sessions = new Map();
     this.state = { available: false, virtualReady: false, playing: [], error: '' };
   }
   publish() { this.state.playing = [...this.sessions.values()].map(s => ({ id: s.id, actionId: s.actionId, name: path.basename(s.path), route: s.route })); this.onStatus(); }
@@ -30,6 +30,7 @@ export class Soundboard {
         if (!/^\d+$/.test(id)) throw new Error('Audio server returned an invalid module ID.');
         if (this.closed) { await this.run('pactl', ['unload-module', id]).catch(() => {}); throw new Error('Soundboard is closing.'); }
         this.modules.push(id);
+        this.ownedModules.set(id, { name: args[0], identity: args.slice(1).filter(arg => /^(source|sink|source_name|sink_name|master)=/.test(arg)) });
       };
       const sinks = JSON.parse(await this.run('pactl', ['-f', 'json', 'list', 'sinks']));
       const sources = JSON.parse(await this.run('pactl', ['-f', 'json', 'list', 'sources']));
@@ -45,7 +46,17 @@ export class Soundboard {
   }
   async teardown() {
     const modules = this.modules.splice(0).reverse();
-    for (const id of modules) await this.run('pactl', ['unload-module', id], { timeout: 2000 }).catch(() => {});
+    if (modules.length) {
+      // Audio-server restarts can reuse numeric module IDs. Verify names and
+      // routing arguments before unloading, rather than trusting an old ID.
+      const current = await this.run('pactl', ['-f', 'json', 'list', 'modules'], { timeout: 2000 }).then(JSON.parse).catch(() => []);
+      for (const id of modules) {
+        const expected = this.ownedModules.get(id), actual = current.find(module => String(module.index) === id);
+        const tokens = String(actual?.argument || '').split(/\s+/);
+        if (expected && actual?.name === expected.name && expected.identity.every(token => tokens.includes(token))) await this.run('pactl', ['unload-module', id], { timeout: 2000 }).catch(() => {});
+        this.ownedModules.delete(id);
+      }
+    }
     this.state.virtualReady = false; this.publish();
   }
   stop(entry) {

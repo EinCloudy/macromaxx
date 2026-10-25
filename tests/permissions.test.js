@@ -21,3 +21,9 @@ test('Restoration without a token does not request keyboard access', async () =>
   const input = new Input(() => {}); input.wayland = true; input.rpc = async () => assert.fail('no permission dialog should be requested');
   await input.restore();
 });
+
+test('Closing keyboard input prevents a late permission restoration from spawning a session', async () => {
+  const input = new Input(() => {}); input.wayland = true;
+  await input.close(); await assert.rejects(input.setup(), /closing/);
+  await input.restore(); assert.equal(input.child, undefined);
+});
