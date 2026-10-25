@@ -12,8 +12,8 @@ async function limit(promise, ms = 10000) {
   finally { clearTimeout(timer); }
 }
 export class Actions {
-  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media, desktop }) {
-    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media, desktop });
+  constructor({ input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard }) {
+    Object.assign(this, { input, plugins, shell, clipboard, getState, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard });
     this.running = new Map(); this.obs = new OBSWebSocket(); this.obsState = { connected: false, scene: '', recording: false, streaming: false, inputs: [], scenes: [], muted: {} };
     this.obs.on('ConnectionClosed', () => { this.obsState.connected = false; status(); });
     this.obs.on('CurrentProgramSceneChanged', e => { this.obsState.scene = e.sceneName; status(); });
@@ -52,6 +52,7 @@ export class Actions {
       case 'hotkey': await this.input.hotkey(action.keys, action.mode || 'tap'); break;
       case 'audio': if (!this.audio) throw new Error('Audio service unavailable.'); await this.audio.execute(action); break;
       case 'desktop': if (!this.desktop) throw new Error('Desktop service unavailable.'); await this.desktop.execute(action); break;
+      case 'sound': if (!this.soundboard) throw new Error('Soundboard unavailable.'); return this.soundboard.play(action);
       case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Only http, https, and mailto URLs are allowed.'); await this.shell.openExternal(url.href); break; }
       case 'app': {
         if (this.launcher) { await this.launcher.launch(action, this.shell); break; }

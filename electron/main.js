@@ -15,21 +15,23 @@ import { Media } from './media.js';
 import { Desktop } from './desktop.js';
 import { FocusMonitor } from './focus.js';
 import { AutoProfiles } from './auto-profiles.js';
+import { Soundboard } from './soundboard.js';
 import { validateState } from '../shared/model.js';
 import { isKeyActive, liveKey } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exec = promisify(execFile); const dev = process.argv.includes('--dev');
-let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, focus, autoProfiles, folderPath = [], quitting = false;
+let win, tray, store, state, input, devices, plugins, actions, audio, launcher, media, desktop, focus, autoProfiles, soundboard, folderPath = [], quitting = false;
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, soundboard: soundboard?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
   for (const index of pressed.keys()) emit({ type: 'press', index, down: false });
   pressed.clear(); actions?.cancel();
+  soundboard?.stopAll();
   void audio?.releaseAll().catch(e => log('error', 'Microphone release', e.message));
   void input?.releaseAll().catch(e => log('error', 'Keyboard release', e.message));
 }
@@ -82,8 +84,9 @@ else {
     desktop = new Desktop(status, input); await desktop.probe();
     autoProfiles = new AutoProfiles(() => state, id => navigate({ profileId: id, automatic: true }), e => log('error', 'Automatic profile', e.message));
     focus = new FocusMonitor(path.join(app.getPath('userData'), 'runtime'), desktop, info => { status(); autoProfiles.update(info); });
+    soundboard = new Soundboard(status, e => log('error', 'Soundboard', e.message)); await soundboard.probe();
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
-    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => liveKey(slot.key, { media: media.state })), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state, media: media.state }), getSettings: () => state.settings,
+    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => liveKey(slot.key, { media: media.state })), getBrightness: () => state.settings.brightness, isActive: key => isKeyActive(key, actions?.obsState, { audio: audio.state, media: media.state, soundboard: soundboard.state }), getSettings: () => state.settings,
       onDown: index => {
         if (pressed.has(index)) return;
         const key = deckSlots(state, folderPath, devices.info.count)[index]?.key;
@@ -100,7 +103,7 @@ else {
         else if (record && record.keyId === deckSlots(state, folderPath, devices.info.count)[index]?.key?.id) execute(index, Date.now() - record.time > 600).catch(e => log('error', 'Key', e.message));
       }
     });
-    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media, desktop });
+    actions = new Actions({ input, plugins, shell, clipboard, getState: () => state, navigate, log, updateKey, status, audio, launcher, media, desktop, soundboard });
     const handlers = {
       init: () => ({ state, status: getStatus(), logs, folderPath }),
       save: async (_, next) => { validateState(next); const old = state.settings; if (old.autostart !== next.settings.autostart) await autostart(next.settings.autostart); await store.save(next); if (state.activeProfileId !== next.activeProfileId) { folderPath = []; autoProfiles.manual(next.activeProfileId); } state = next; await focus.configure(!!state.settings.autoProfiles); autoProfiles.update(focus.state, true); await devices.render(); return true; },
@@ -112,6 +115,9 @@ else {
       refreshApplications: () => launcher.scan(),
       refreshMedia: () => media.refresh(),
       refreshDesktop: () => desktop.probe(),
+      setupSoundboard: async (_, options) => { const result = await soundboard.setupVirtual(options || {}); await audio.refresh(); return result; },
+      stopSounds: () => soundboard.stopAll(),
+      removeSoundboard: async () => { soundboard.stopAll(); await soundboard.teardown(); await audio.refresh(); },
       installDesktopExtension: () => desktop.installExtension(path.join(app.getAppPath(), 'extensions/macromaxx@macromaxx.local')),
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); await audio.refresh(); },
       installUdev: async () => {
@@ -133,7 +139,7 @@ else {
         imported.settings.autostart = state.settings.autostart; await store.save(imported); state = imported; folderPath = []; publishState(); status(); await devices.render(); return state;
       },
       plugins: () => plugins.scan(), openPlugins: () => shell.openPath(path.join(app.getPath('userData'), 'plugins')),
-      cancel: async () => { actions.cancel(); await Promise.all([input.releaseAll(), audio.releaseAll()]); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)
+      cancel: async () => { actions.cancel(); soundboard.stopAll(); await Promise.all([input.releaseAll(), audio.releaseAll()]); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)
     };
     for (const [name, handler] of Object.entries(handlers)) ipcMain.handle('app:' + name, (event, ...args) => { if (event.sender !== win?.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Unauthorized request.'); return handler(event, ...args); });
     win = new BrowserWindow({ width: 1500, height: 960, minWidth: 1120, minHeight: 740, backgroundColor: '#101114', title: 'MacroMaxx', autoHideMenuBar: true, webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
@@ -152,7 +158,7 @@ else {
     powerMonitor.on('suspend', () => { releasePhysicalKeys(); devices.suspend().catch(e => log('error', 'Suspend', e.message)); });
     powerMonitor.on('lock-screen', releasePhysicalKeys);
     powerMonitor.on('resume', () => {
-      Promise.allSettled([devices.resume(), audio.refresh(), media.refresh(), focus.restart(), input.reset().then(() => state.settings.rememberWaylandPermission !== false ? input.restore() : null)]).then(status);
+      Promise.allSettled([devices.resume(), audio.refresh(), media.refresh(), soundboard.probe(), focus.restart(), input.reset().then(() => state.settings.rememberWaylandPermission !== false ? input.restore() : null)]).then(status);
     });
   }).catch(error => { dialog.showErrorBox('MacroMaxx', error.stack || error.message); quitting = true; app.quit(); });
   app.on('before-quit', event => {
@@ -166,7 +172,7 @@ else {
     launcher.close();
     media.close();
     autoProfiles.close();
-    Promise.allSettled([input.close(), audio.close(), focus.close(), devices.close(), store.queue]).then(() => {
+    Promise.allSettled([input.close(), audio.close(), focus.close(), soundboard.close(), devices.close(), store.queue]).then(() => {
       app.cleanupDone = true;
       app.quit();
     });

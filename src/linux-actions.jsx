@@ -4,6 +4,17 @@ import { desktopCommands } from '../shared/desktop-commands.js';
 export function DesktopEditor({ action, update, status }) {
   return <><Select label="Desktop action" value={action.command} options={desktopCommands.map(([id, label]) => [id, label + (status.desktop?.supported?.includes(id) ? '' : ' (not available here)')])} onChange={command => update({ command })} /><p className="muted-text">Backend: {status.desktop?.backend || 'Not detected'}. {status.desktop?.error || 'Actions affect the currently focused window.'}</p></>;
 }
+export function SoundEditor({ action, update, status, perform }) {
+  return <><Select label="Sound command" value={action.command || 'play'} options={[["play", 'Play audio'], ['stop-all', 'Stop all sounds']]} onChange={command => update({ command })} />{action.command !== 'stop-all' && <>
+    <TextField label="Audio file" value={action.path} onChange={path => update({ path })} /><button className="button small" onClick={() => perform(async () => { const path = await api.pickFile(); if (path) update({ path }); })}>Choose audio file</button>
+    <Select label="Audio route" value={action.route || 'output'} options={[["output", 'Speakers / headphones'], ['virtual', 'Virtual microphone'], ['both', 'Output and virtual microphone']]} onChange={route => update({ route })} />
+    {action.route !== 'virtual' && <Select label="Playback output" value={action.output || 'default'} options={[["default", 'System default'], ...(status.audio?.outputs || []).filter(d => d.id !== 'macromaxx_soundboard').map(d => [d.id, d.name])]} onChange={output => update({ output })} />}
+    <label className="field"><span>Sound volume (%)</span><input type="number" min="0" max="100" value={action.volume ?? 80} onChange={e => update({ volume: Number(e.target.value) })} /></label>
+    <Select label="Repeated key press" value={action.behavior || 'restart'} options={[["restart", 'Restart this sound'], ['toggle', 'Play / stop toggle'], ['overlap', 'Allow overlapping playback']]} onChange={behavior => update({ behavior })} />
+    <label className="checkbox-label"><input type="checkbox" checked={!!action.loop} onChange={e => update({ loop: e.target.checked })} />Loop until stopped</label>
+    <p className="muted-text">Virtual routes require setup in Settings → Soundboard. Audio paths are local references; export does not bundle sound files. Linux requires ffmpeg and pw-play.</p>
+  </>}</>;
+}
 function TextField({ label, value, onChange, multiline, placeholder }) { return <label className="field"><span>{label}</span>{multiline ? <textarea rows="4" value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} /> : <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} />}</label>; }
 export function LauncherEditor({ action, update, status, perform }) {
   const [search, setSearch] = useState('');

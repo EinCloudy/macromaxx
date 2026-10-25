@@ -48,6 +48,12 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 ## Actions
 
+### Soundboard and virtual microphone
+
+**Soundboard** decodes local audio with ffmpeg and plays through PipeWire pw-play. Select an output, a virtual microphone, or both; set volume, looping, and restart/toggle/overlap behavior. A stop-all sound key or **Stop all** stops playback. Keys show live playback state. Sound paths are references, not bundled into workspace exports.
+
+In **Settings → Soundboard**, explicitly create a null sink and a remapped virtual microphone using PipeWire-Pulse/pactl. Optionally mix a physical microphone and monitor the mix on a chosen output. No default audio device is changed. Select **MacroMaxx Virtual Microphone** in your voice app. Leave monitoring disabled to avoid hearing your own microphone. Cleanup removes only module IDs created by this app session, in reverse order; pre-existing shared virtual devices are reused. Routing must be set up again after it is removed or after an audio-server restart.
+
 ### MPRIS players
 
 Media keys can select a specific Linux MPRIS player or automatically prefer a playing one. Browser instance IDs are resolved to the same application when its instance changes. Playback, player volume, title, artist, and live playing-state indicators use playerctl. Optional title labels are transient: your configured label remains saved and returns when metadata is unavailable. System mute/volume commands remain separate from player volume. **Settings → Media players** shows the current players and metadata.

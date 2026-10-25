@@ -3,6 +3,8 @@ import { selectPlayer } from './players.js';
 export const backKey = { id: 'back', label: 'Back', icon: 'ArrowLeft', color: '#ad92ff', background: '#242231' };
 
 export function isKeyActive(key, obs, live = {}) {
+  const sound = key?.actions?.find(a => a.type === 'sound');
+  if (sound) return !!live.soundboard?.playing?.some(s => s.actionId === sound.id);
   const audioAction = key?.actions?.find(a => a.type === 'audio');
   if (audioAction && live.audio?.available) {
     const kind = audioAction.kind || 'input';
