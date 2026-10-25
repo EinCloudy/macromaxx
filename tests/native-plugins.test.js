@@ -41,7 +41,7 @@ function fixture(platform, disabled = [], failId) {
 test('Windows and macOS never import Linux-only native plugins', async () => {
   for (const platform of ['win32', 'darwin']) {
     const f = fixture(platform); await f.host.initialize();
-    assert.deepEqual(f.loaded, ['keyboard', 'session', 'launcher', 'media']);
+    assert.deepEqual(f.loaded, ['keyboard', 'session', 'launcher', 'media', 'soundboard']);
     for (const id of ['linux-audio', 'linux-desktop', 'linux-soundboard']) assert.equal(f.host.records.find(r => r.manifest.id === id).state, 'unsupported');
     await assert.rejects(f.host.execute({ type: 'audio', command: 'mute' }), /Available on linux/);
     assert.equal(f.host.snapshot().native.actionTypes.audio.available, false);
@@ -113,7 +113,7 @@ test('Windows and macOS keyboard adapters use only their own native helpers', as
   }
 });
 
-test('Media adapters honestly distinguish Windows media keys from macOS volume-only support', async () => {
+test('OS fallback media adapters distinguish Windows media keys from macOS volume-only support', async () => {
   for (const platform of ['win32', 'darwin']) {
     const calls = [];
     const instance = await createMedia({ platform, changed: () => {}, service: () => ({ integrationAvailable: true }), runCommand: async (...args) => { calls.push(args); return '1'; }, runAction: async action => calls.push(action) });

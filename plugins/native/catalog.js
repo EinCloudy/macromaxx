@@ -8,5 +8,5 @@ export const nativeActionDefinitions = [
   { type: 'media', provider: 'media', order: 50, name: 'Media controls', icon: 'Music2', group: 'System', description: 'Control playback and volume', defaults: { command: 'playpause', player: 'auto', showTitle: false, showArtist: false, volume: 50, step: 5 } },
   { type: 'audio', provider: 'linux-audio', order: 55, name: 'Audio & microphone', icon: 'Mic', group: 'System', description: 'Devices, mute, volume, and microphone holds', defaults: { kind: 'input', target: 'default', command: 'mute', volume: 5 } },
   { type: 'desktop', provider: 'linux-desktop', order: 60, name: 'Desktop & windows', icon: 'Monitor', group: 'System', description: 'Workspaces, windows, and monitors', defaults: { command: 'workspace-next' } },
-  { type: 'sound', provider: 'linux-soundboard', order: 65, name: 'Soundboard', icon: 'Radio', group: 'System', description: 'Play audio with native output routing', defaults: { command: 'play', path: '', route: 'output', output: 'default', volume: 80, loop: false, behavior: 'restart' } },
+  { type: 'sound', provider: 'soundboard', order: 65, name: 'Soundboard', icon: 'Radio', group: 'System', description: 'Play audio using a shared default-output backend', defaults: { command: 'play', path: '', route: 'output', output: 'default', volume: 80, loop: false, behavior: 'restart' } },
 ];

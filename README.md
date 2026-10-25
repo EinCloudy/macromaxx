@@ -4,6 +4,8 @@ A JavaScript/Electron app for Elgato Stream Decks: a visual editor, profiles, fo
 
 The core is platform-neutral. OS input, application/media/session integration, and Linux-only audio/desktop/routing are **bundled native plugins**, loaded only on compatible platforms. See the [capability matrix](docs/PLATFORMS.md) and [native plugin architecture](docs/NATIVE_PLUGINS.md). Settings lists each provider and its dependencies; unavailable assignments are preserved, not silently executed or deleted.
 
+Shared NPM backends are installed by default: **@jitsi/robotjs** for keyboard/global media keys on Windows/macOS/X11, and **node-web-audio-api** for default-output soundboard playback. Native addons are isolated in child processes. Wayland keeps portal/EIS, Linux keeps MPRIS and advanced routing, and missing libraries fall back where a native provider is available. See the platform matrix for permissions, architecture/audio-library requirements, and remaining OS-specific capabilities.
+
 ## Getting started
 
 ### Background use and reopening
@@ -26,6 +28,7 @@ npm run dev    # Vite with hot reload + Electron
 npm test       # Core logic, local HTTP requests, plugin processes, and an OBS test server
 npm run pack   # Unpacked desktop app in release/
 npm run dist   # Installer for the current platform
+npm run verify:native # Verify installed Node-API modules with Electron
 ```
 
 Linux: AppImage. Windows: NSIS. macOS: dmg. Build on the corresponding operating system for each platform. Code signing and notarization are not configured.
@@ -58,13 +61,13 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 ### Soundboard and virtual microphone
 
-**Soundboard** decodes local audio with ffmpeg and plays through PipeWire pw-play. Select an output, a virtual microphone, or both; set volume, looping, and restart/toggle/overlap behavior. A stop-all sound key or **Stop all** stops playback. Keys show live playback state. Sound paths are references, not bundled into workspace exports.
+**Shared Soundboard** uses node-web-audio-api for default-output playback, gain, looping, restart/toggle/overlap and stopping on supported Linux/Windows/macOS systems. **Linux Audio Routing** adds named outputs, virtual microphones and a streaming fallback using ffmpeg/pw-play. A stop-all sound key or **Stop all** stops both backends. Sound paths are references, not bundled into exports.
 
-In **Settings → Linux soundboard plugin**, explicitly create a null sink and remapped virtual microphone using PipeWire-Pulse/pactl. Optionally mix a physical microphone and monitor the mix on an output. No default device is changed. Select **MacroMaxx Virtual Microphone** in your voice app. Cleanup verifies ownership before removing this session's modules. This adapter and its routing are Linux-only; unsupported systems retain the assignment data.
+In **Settings → Linux audio routing plugin**, explicitly create a null sink and remapped virtual microphone using PipeWire-Pulse/pactl. Optionally mix a physical microphone and monitor the mix on an output. No default device is changed. Select **MacroMaxx Virtual Microphone** in your voice app. Cleanup verifies ownership before removing this session's modules. This adapter and its routing are Linux-only; unsupported systems retain the assignment data.
 
 ### MPRIS players
 
-The **Native Media** plugin can select Linux MPRIS players and display transient track labels. Windows uses basic media-key events; the current macOS adapter provides volume/mute only. The editor offers supported commands and identifies unavailable imported variants. Player-specific metadata/volume are not claimed on systems without an adapter. **Settings → Native media** shows the current capabilities.
+The **Native Media** plugin uses shared RobotJS global playback/volume keys where available, including macOS. Linux prefers MPRIS for running players and retains player selection/transient track labels. OS fallback adapters remain available; the legacy AppleScript fallback provides only system volume/mute. Player-specific metadata/volume are not claimed without an adapter. **Settings → Native media** shows the detected capabilities.
 
 ### Applications and scripts
 

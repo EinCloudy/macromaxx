@@ -1,0 +1,6 @@
+{
+  "id": "soundboard", "type": "bundled-native", "apiVersion": 1, "name": "Shared Soundboard",
+  "description": "Cross-platform default-output playback using node-web-audio-api; Linux routing is provided by a separate plugin.",
+  "platforms": ["linux", "win32", "darwin"], "order": 80, "main": "index.js",
+  "actions": { "sound": "sound.play" }, "legacyOperations": { "stopSounds": "stop" }
+}

@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline';
 import { readPermission, writePermission, forgetPermission } from './permissions.js';
 const exec = promisify(execFile);
 const symbols = { CTRL: 0xffe3, CONTROL: 0xffe3, SHIFT: 0xffe1, ALT: 0xffe9, META: 0xffeb, SUPER: 0xffeb, CMD: 0xffeb, COMMAND: 0xffeb, ENTER: 0xff0d, RETURN: 0xff0d, TAB: 0xff09, ESC: 0xff1b, ESCAPE: 0xff1b, SPACE: 32, BACKSPACE: 0xff08, DELETE: 0xffff, HOME: 0xff50, END: 0xff57, LEFT: 0xff51, UP: 0xff52, RIGHT: 0xff53, DOWN: 0xff54, PAGEUP: 0xff55, PAGEDOWN: 0xff56, PLAYPAUSE: 0x1008ff14, NEXT: 0x1008ff17, PREVIOUS: 0x1008ff16, MUTE: 0x1008ff12, VOLUMEUP: 0x1008ff13, VOLUMEDOWN: 0x1008ff11 };
+symbols.STOP = 0x1008ff15;
 export function parseKeys(value) {
   const tokens = String(value).split('+').map(k => k.trim().toUpperCase()).filter(Boolean);
   if (!tokens.length || tokens.length > 8) throw new Error('Invalid key combination.');
@@ -83,6 +84,8 @@ export class Input {
       const down = keys.map(k => [k.code, 1]), up = [...keys].reverse().map(k => [k.code, 0]);
       return this.rpc('keys', { events: mode === 'down' ? down : mode === 'up' ? up : [...down, ...up] });
     }
+    const x11Media = { PLAYPAUSE: 'XF86AudioPlay', STOP: 'XF86AudioStop', NEXT: 'XF86AudioNext', PREVIOUS: 'XF86AudioPrev', MUTE: 'XF86AudioMute', VOLUMEUP: 'XF86AudioRaiseVolume', VOLUMEDOWN: 'XF86AudioLowerVolume' };
+    if (this.platform === 'linux' && keys.length === 1 && x11Media[keys[0].key]) return this.execute('xdotool', [mode === 'down' ? 'keydown' : mode === 'up' ? 'keyup' : 'key', x11Media[keys[0].key]]);
     if (this.platform === 'linux') return this.execute('xdotool', [mode === 'down' ? 'keydown' : mode === 'up' ? 'keyup' : 'key', keys.map(k => ({ CTRL: 'ctrl', CONTROL: 'ctrl', SHIFT: 'shift', ALT: 'alt', META: 'super', SUPER: 'super', CMD: 'super', COMMAND: 'super', ENTER: 'Return', RETURN: 'Return', ESC: 'Escape', ESCAPE: 'Escape', SPACE: 'space', BACKSPACE: 'BackSpace', DELETE: 'Delete', LEFT: 'Left', UP: 'Up', RIGHT: 'Right', DOWN: 'Down', HOME: 'Home', END: 'End', TAB: 'Tab', PAGEUP: 'Page_Up', PAGEDOWN: 'Page_Down', PLUS: 'plus', MINUS: 'minus', COMMA: 'comma', PERIOD: 'period', SLASH: 'slash' }[k.key] || (k.key.length === 1 ? k.key.toLowerCase() : k.key))).join('+')]);
     if (this.platform === 'darwin') {
       const modifiers = keys.slice(0, -1).map(k => ({ CTRL: 'control down', CONTROL: 'control down', ALT: 'option down', SHIFT: 'shift down', CMD: 'command down', COMMAND: 'command down', META: 'command down', SUPER: 'command down' }[k.key]));
@@ -96,6 +99,7 @@ export class Input {
       return this.execute('osascript', ['-e', `tell application "System Events" to ${key}${modifiers.length ? ' using {' + modifiers.join(',') + '}' : ''}`]);
     }
     const vk = { CTRL: 17, CONTROL: 17, SHIFT: 16, ALT: 18, META: 91, SUPER: 91, CMD: 91, COMMAND: 91, ENTER: 13, RETURN: 13, TAB: 9, SPACE: 32, ESC: 27, ESCAPE: 27, BACKSPACE: 8, DELETE: 46, HOME: 36, END: 35, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, PAGEUP: 33, PAGEDOWN: 34, PLAYPAUSE: 179, NEXT: 176, PREVIOUS: 177, MUTE: 173, VOLUMEUP: 175, VOLUMEDOWN: 174 };
+    vk.STOP = 178;
     const punctuation = { PLUS: 187, MINUS: 189, COMMA: 188, PERIOD: 190, SLASH: 191, '-': 189, ',': 188, '.': 190, '/': 191 };
     const numbers = keys.map(k => vk[k.key] || punctuation[k.key] || (/^F\d+$/.test(k.key) ? 111 + Number(k.key.slice(1)) : k.key.charCodeAt(0)));
     const down = numbers.map(n => `[MMKeys]::keybd_event(${n},0,0,[UIntPtr]::Zero);`).join('');

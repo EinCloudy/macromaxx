@@ -17,18 +17,23 @@ export async function create(ctx) {
     ctx.changed(); return media.state;
   };
   await refresh();
-  const commands = () => linux ? [...(media.state.available ? playerCommands : []), ...(systemAvailable ? systemCommands : [])] : systemAvailable ? ctx.platform === 'win32' ? windowsCommands : systemCommands : [];
+  const systemReady = () => ctx.platform === 'win32' ? !!ctx.service('input')?.integrationAvailable : systemAvailable;
+  const globalCommands = () => ctx.service('input')?.mediaCommands || (ctx.platform === 'win32' && systemReady() ? windowsCommands : []);
+  const commands = () => [...new Set([...(linux && media.state.available ? playerCommands : []), ...globalCommands(), ...(systemReady() ? systemCommands : [])])];
   return {
     services: { media },
-    defaults: () => ctx.platform === 'darwin' ? { command: 'volumeup' } : {},
-    capabilities: () => ({ 'media.controls': { available: commands().length > 0, reason: commands().length ? '' : 'Required native media tools are unavailable.', features: { commands: commands(), players: linux && media.state.available, titles: linux && media.state.available } } }),
+    defaults: () => ctx.platform === 'darwin' && !commands().includes('playpause') ? { command: 'volumeup' } : {},
+    capabilities: () => ({ 'media.controls': { available: commands().length > 0, reason: commands().length ? '' : 'Required native media tools are unavailable.', features: { commands: commands(), globalCommands: globalCommands(), players: linux && media.state.available, titles: linux && media.state.available } } }),
     supports: action => {
       if (action.command && !commands().includes(action.command)) return { available: false, reason: 'This media command is not implemented or available in the current OS adapter.' };
       if (!linux && (action.showTitle || action.player && action.player !== 'auto')) return { available: false, reason: 'Player selection and track metadata currently require the Linux MPRIS adapter.' };
       return { available: true };
     },
     actions: { media: async action => {
-      if (linux && playerCommands.includes(action.command)) return media.execute(action);
+      if (linux && playerCommands.includes(action.command) && (selectPlayer(media.state, action.player) || !globalCommands().includes(action.command) || action.player && action.player !== 'auto' || action.showTitle)) return media.execute(action);
+      const shared = globalCommands().includes(action.command);
+      const preferSystemApi = systemCommands.includes(action.command) && systemAvailable && (linux || ctx.platform === 'darwin' && !ctx.service('input')?.ready);
+      if (shared && !preferSystemApi) return ctx.runAction({ type: 'hotkey', keys: { playpause: 'PLAYPAUSE', next: 'NEXT', previous: 'PREVIOUS', stop: 'STOP', mute: 'MUTE', volumeup: 'VOLUMEUP', volumedown: 'VOLUMEDOWN' }[action.command] });
       if (ctx.platform === 'darwin') return execute('osascript', ['-e', action.command === 'mute' ? 'set volume output muted not (output muted of (get volume settings))' : `set volume output volume ((output volume of (get volume settings)) ${action.command === 'volumeup' ? '+' : '-'} 5)`]);
       if (ctx.platform === 'win32') return ctx.runAction({ type: 'hotkey', keys: { playpause: 'PLAYPAUSE', next: 'NEXT', previous: 'PREVIOUS', mute: 'MUTE', volumeup: 'VOLUMEUP', volumedown: 'VOLUMEDOWN' }[action.command] });
       const audio = ctx.service('audio');
@@ -37,7 +42,7 @@ export async function create(ctx) {
       catch { return execute('pactl', action.command === 'mute' ? ['set-sink-mute', '@DEFAULT_SINK@', 'toggle'] : ['set-sink-volume', '@DEFAULT_SINK@', action.command === 'volumeup' ? '+5%' : '-5%']); }
     } },
     operations: { refresh },
-    status: () => ({ media: linux ? media.state : { available: systemAvailable, players: [], error: '', backend: ctx.platform === 'win32' ? 'Windows media keys' : 'macOS volume/mute' } }),
+    status: () => ({ media: linux ? media.state : { available: commands().length > 0, players: [], error: '', backend: globalCommands().includes('playpause') ? 'Shared/global media keys' : 'macOS volume/mute fallback' } }),
     visual: key => linux ? mediaVisual(key, media.state) : null,
     start: () => { if (linux) media.start(); }, resume: refresh, close: () => media.close(),
   };

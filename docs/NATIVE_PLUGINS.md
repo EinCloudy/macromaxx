@@ -23,6 +23,8 @@ The host (`electron/native-plugins.js`) discovers only this bundled directory. I
 
 Native action contracts/defaults live in `plugins/native/catalog.js`, so validation retains known actions on unsupported systems. The core runner dispatches through the host; it contains no native CLI or OS-specific fallbacks. Renderer contributions are explicitly registered at build time in `plugins/native/ui.jsx`; no renderer code is evaluated from user files.
 
+The bundled keyboard and shared sound plugins use standard NPM backends by default (`@jitsi/robotjs`, `node-web-audio-api`). Their addons live in persistent **child processes**, through `plugins/native/worker-client.js`, with typed requests, deadlines and cleanup. This is separate from user worker plugins, which execute individual actions. OS fallbacks and advanced Linux routing remain inside their owning native packages. No native addon is imported by the renderer.
+
 ## Factory and context
 
 `export async function create(ctx)` receives the platform, bundled root, user-data/temp directories, Electron app/shell/clipboard/shortcut interfaces, `getState()`, `changed()`, `report(error)`, `service(name)`, `runAction(action, signal)`, and generic window/device/focus callbacks. `changed()` invalidates snapshots and publishes updated capabilities/live state.

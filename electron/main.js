@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage, powerMonitor, globalShortcut, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage, powerMonitor, globalShortcut, Notification, systemPreferences } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -105,7 +105,7 @@ else {
     app.setName('MacroMaxx'); store = new Store(app.getPath('userData'));
     try { state = await store.load(); } catch (e) { dialog.showErrorBox('MacroMaxx – Workspace', e.message); app.quit(); return; }
     native = new NativePlugins(nativeDirectory, {
-      app, shell, clipboard, shortcuts: globalShortcut, getState: () => state, log, onStatus: status,
+      app, shell, clipboard, systemPreferences, shortcuts: globalShortcut, getState: () => state, log, onStatus: status,
       dataDirectory: app.getPath('userData'), tempDirectory: app.getPath('temp'),
       showWindow: () => { showMainWindow().catch(e => log('error', 'Open window', e.message)); },
       windowVisible: () => !!win && !win.isDestroyed() && win.isVisible(),

@@ -9,7 +9,7 @@ export function MediaEditor({ action, update, status }) {
     {(features.players || action.player && action.player !== 'auto') && <Select label="MPRIS player (Linux)" value={action.player || 'auto'} options={[["auto", 'Automatic (prefer playing)'], ...(status.media?.players || []).map(p => [p.id, `${p.id} · ${p.status}`])]} onChange={player => update({ player })} />}
     {action.command?.startsWith('player-volume') && <label className="field"><span>{action.command === 'player-volume' ? 'Player volume (%)' : 'Volume step (%)'}</span><input type="number" min="0" max="100" value={action.command === 'player-volume' ? action.volume ?? 50 : action.step ?? 5} onChange={e => update({ [action.command === 'player-volume' ? 'volume' : 'step']: Number(e.target.value) })} /></label>}
     {(features.titles || action.showTitle) && <><label className="checkbox-label"><input type="checkbox" checked={!!action.showTitle} onChange={e => update({ showTitle: e.target.checked })} />Show track title on key (Linux MPRIS)</label>{action.showTitle && <label className="checkbox-label"><input type="checkbox" checked={!!action.showArtist} onChange={e => update({ showArtist: e.target.checked })} />Include artist</label>}</>}
-    <p className="muted-text">Only commands supported by the current adapter are offered. Saved unsupported commands remain visible. Windows provides basic media keys; macOS currently provides system volume/mute only.</p>
+    <p className="muted-text">Shared RobotJS provides global playback keys where supported and permitted. Linux prefers MPRIS when a player is available; player selection and metadata remain platform-specific. Saved unsupported commands remain visible.</p>
   </>;
 }
 export function MediaSettings({ status, perform }) {

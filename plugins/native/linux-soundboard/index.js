@@ -3,17 +3,16 @@ export async function create(ctx) {
   const soundboard = new Soundboard(ctx.changed, ctx.report); await soundboard.probe();
   const refreshAudio = () => ctx.service('audio')?.refresh();
   return {
-    services: { soundboard },
-    capabilities: () => ({ 'sound.play': { available: soundboard.state.available, reason: soundboard.state.error, features: { routes: ['output', 'virtual', 'both'], virtualMicrophone: soundboard.state.virtualReady } } }),
+    services: { soundRouting: soundboard },
+    capabilities: () => ({ 'sound.routing': { available: soundboard.state.available, reason: soundboard.state.error, features: { routes: ['output', 'virtual', 'both'], virtualMicrophone: soundboard.state.virtualReady } } }),
     supports: action => action.command !== 'stop-all' && ['virtual', 'both'].includes(action.route) && !soundboard.state.virtualReady ? { available: false, reason: 'Set up the virtual microphone in this plugin’s settings first.' } : { available: true },
-    actions: { sound: action => soundboard.play(action) },
+    actions: {},
     operations: {
       setup: async options => { const result = await soundboard.setupVirtual(options || {}); await refreshAudio(); return result; },
       stop: () => soundboard.stopAll(),
       remove: async () => { soundboard.stopAll(); await soundboard.teardown(); await refreshAudio(); },
     },
-    status: () => ({ soundboard: soundboard.state }),
-    visual: key => soundVisual(key, soundboard.state),
+    status: () => ({ soundRouting: soundboard.state }),
     release: () => soundboard.stopAll(), resume: () => soundboard.probe(), close: () => soundboard.close(),
   };
 }

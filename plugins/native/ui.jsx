@@ -6,7 +6,8 @@ import { LauncherEditor, ScriptEditor } from './launcher/ui.jsx';
 import { MediaEditor, MediaSettings } from './media/ui.jsx';
 import { AudioEditor, AudioSettings } from './linux-audio/ui.jsx';
 import { DesktopEditor, DesktopSettings } from './linux-desktop/ui.jsx';
-import { SoundEditor, SoundSettings } from './linux-soundboard/ui.jsx';
+import { SoundSettings } from './linux-soundboard/ui.jsx';
+import { SoundEditor, SharedSoundSettings } from './soundboard/ui.jsx';
 
 // This trusted, build-time registry ships with the plugins. The core never
 // imports native service implementations or evaluates renderer code from disk.
@@ -16,7 +17,8 @@ const registry = {
   media: { Settings: MediaSettings, editors: { media: MediaEditor } },
   'linux-audio': { Settings: AudioSettings, editors: { audio: AudioEditor } },
   'linux-desktop': { Settings: DesktopSettings, editors: { desktop: DesktopEditor } },
-  'linux-soundboard': { Settings: SoundSettings, editors: { sound: SoundEditor } },
+  'linux-soundboard': { Settings: SoundSettings },
+  soundboard: { Settings: SharedSoundSettings, editors: { sound: SoundEditor } },
 };
 export function nativeActionAvailability(status, action) {
   return status.native?.actionStates?.[action.id] || status.native?.actionTypes?.[action.type] || { available: true };

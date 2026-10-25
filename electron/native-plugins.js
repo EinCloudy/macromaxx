@@ -3,6 +3,7 @@ import syncFs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { migrateNativeSettings } from '../plugins/native/migrations.js';
 
 const require = createRequire(import.meta.url);
 const unavailable = reason => ({ available: false, reason });
@@ -30,6 +31,7 @@ export class NativePlugins {
   changed() { this.cached = null; this.context.onStatus?.(); }
   report(id, error) { this.context.log?.('error', `Native plugin: ${id}`, error.message || String(error)); }
   async initialize() {
+    migrateNativeSettings(this.context.getState());
     const roots = await fs.readdir(this.directory, { withFileTypes: true });
     for (const root of roots) {
       if (!root.isDirectory()) continue;
