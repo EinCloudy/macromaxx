@@ -3,6 +3,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { run } from './commands.js';
+export function parseModules(text) {
+  // pactl's JSON module listing omits IDs on some PipeWire versions.
+  return text.split(/\r?\n/).filter(line => /^\d+\t/.test(line)).map(line => {
+    const [index, name, argument = ''] = line.split('\t'); return { index, name, argument };
+  });
+}
 export class Soundboard {
   constructor(onStatus, onError, { execute = run, launch = spawn } = {}) {
     this.onStatus = onStatus; this.onError = onError; this.run = execute; this.spawn = launch;
@@ -49,7 +55,7 @@ export class Soundboard {
     if (modules.length) {
       // Audio-server restarts can reuse numeric module IDs. Verify names and
       // routing arguments before unloading, rather than trusting an old ID.
-      const current = await this.run('pactl', ['-f', 'json', 'list', 'modules'], { timeout: 2000 }).then(JSON.parse).catch(() => []);
+      const current = await this.run('pactl', ['list', 'short', 'modules'], { timeout: 2000 }).then(parseModules).catch(() => []);
       for (const id of modules) {
         const expected = this.ownedModules.get(id), actual = current.find(module => String(module.index) === id);
         const tokens = String(actual?.argument || '').split(/\s+/);

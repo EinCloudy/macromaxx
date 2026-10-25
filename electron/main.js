@@ -27,7 +27,7 @@ let bootReady = false, showRequested = false, creatingWindow, saveRequest, notif
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, soundboard: soundboard?.state, background: background?.state, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ device: devices?.info, available: devices?.available || [], obs: actions?.obsState, audio: audio?.state, media: media?.state, desktop: desktop?.state, focus: focus?.state, soundboard: soundboard?.state, background: background ? { ...background.state, windowVisible: !!win && !win.isDestroyed() && win.isVisible() } : undefined, apps: launcher?.apps || [], inputReady: input?.ready, running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
