@@ -3,11 +3,18 @@ export const MIN_FONT_SIZE = 10;
 export const MAX_FONT_SIZE = 32;
 
 export function keyFontSize(key, defaultSize = DEFAULT_FONT_SIZE) {
-  return Number.isInteger(key?.fontSize) && key.fontSize >= MIN_FONT_SIZE && key.fontSize <= MAX_FONT_SIZE
-    ? key.fontSize : Number.isInteger(defaultSize) && defaultSize >= MIN_FONT_SIZE && defaultSize <= MAX_FONT_SIZE ? defaultSize : DEFAULT_FONT_SIZE;
+  return Number.isInteger(key?.fontSize) &&
+    key.fontSize >= MIN_FONT_SIZE &&
+    key.fontSize <= MAX_FONT_SIZE
+    ? key.fontSize
+    : Number.isInteger(defaultSize) && defaultSize >= MIN_FONT_SIZE && defaultSize <= MAX_FONT_SIZE
+      ? defaultSize
+      : DEFAULT_FONT_SIZE;
 }
 
-export function globalFontSize(settings = {}) { return keyFontSize({ fontSize: settings.defaultFontSize }); }
+export function globalFontSize(settings = {}) {
+  return keyFontSize({ fontSize: settings.defaultFontSize });
+}
 
 // Resolve only for drawing, never write inherited sizes into the workspace.
 export function resolvedKeyFont(key, settings = {}) {
@@ -17,15 +24,25 @@ export function resolvedKeyFont(key, settings = {}) {
 }
 
 export function keyTextLayout(label, fontSize, measure) {
-  const width = 128, lines = [];
+  const width = 128,
+    lines = [];
   for (const paragraph of String(label || '').split(/\r?\n/)) {
     let line = '';
     for (const word of paragraph.trim().split(/\s+/).filter(Boolean)) {
       const combined = line ? `${line} ${word}` : word;
-      if (measure(combined) <= width) { line = combined; continue; }
-      if (line) { lines.push(line); line = ''; }
+      if (measure(combined) <= width) {
+        line = combined;
+        continue;
+      }
+      if (line) {
+        lines.push(line);
+        line = '';
+      }
       for (const character of Array.from(word)) {
-        if (line && measure(line + character) > width) { lines.push(line); line = ''; }
+        if (line && measure(line + character) > width) {
+          lines.push(line);
+          line = '';
+        }
         line += character;
       }
     }

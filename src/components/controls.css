@@ -1,0 +1,16 @@
+.font-size-control {
+  margin-top: 18px;
+}
+.font-size-inputs {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.font-size-inputs input[type='range'] {
+  flex: 1;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.font-size-inputs input[type='number'] {
+  width: 61px;
+}

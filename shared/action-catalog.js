@@ -1,0 +1,60 @@
+import { nativeActionDefinitions } from '../plugins/native/catalog.js';
+
+// Portable action definitions are shared by the renderer and Electron.
+export const catalog = [
+  ...nativeActionDefinitions,
+  {
+    type: 'url',
+    order: 20,
+    name: 'Website',
+    icon: 'Globe',
+    group: 'System',
+    description: 'Open a URL in your browser',
+    defaults: { url: 'https://example.com' },
+  },
+  {
+    type: 'webhook',
+    order: 70,
+    name: 'Webhook',
+    icon: 'Webhook',
+    group: 'Connections',
+    description: 'Send an HTTP request to your workflow',
+    defaults: { url: '', method: 'POST', headers: '{}', body: '{}' },
+  },
+  {
+    type: 'folder',
+    order: 90,
+    name: 'Folder',
+    icon: 'Folder',
+    group: 'Organization',
+    description: 'Make room for more actions',
+    defaults: {},
+  },
+  {
+    type: 'profile',
+    order: 100,
+    name: 'Switch profile',
+    icon: 'Layers',
+    group: 'Organization',
+    description: 'Activate another setup',
+    defaults: { profileId: '' },
+  },
+  {
+    type: 'delay',
+    order: 110,
+    name: 'Delay',
+    icon: 'Timer',
+    group: 'Workflows',
+    description: 'Add a pause to your action chain',
+    defaults: { ms: 500 },
+  },
+  {
+    type: 'plugin',
+    order: 120,
+    name: 'Plugin',
+    icon: 'Puzzle',
+    group: 'Extensions',
+    description: 'Run your own JavaScript actions',
+    defaults: { pluginId: 'hello', config: '{}' },
+  },
+].sort((a, b) => a.order - b.order);

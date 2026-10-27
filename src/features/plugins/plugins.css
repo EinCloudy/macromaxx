@@ -1,0 +1,156 @@
+.plugins-toolbar {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.plugins-toolbar .search-input {
+  margin: 0;
+  max-width: 460px;
+  flex: 1;
+}
+.plugins-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--secondary);
+}
+.plugins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 18px;
+}
+.plugin-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 22px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+}
+.plugin-card:hover {
+  background: var(--panel2);
+  border-color: var(--accent);
+}
+.plugin-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.plugin-card h3 {
+  font-size: 15px;
+  margin-bottom: 9px;
+}
+.plugin-card p {
+  color: var(--secondary);
+  line-height: 1.7;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.plugin-platforms {
+  color: var(--secondary);
+  margin-top: 14px;
+}
+.plugin-card-controls {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  margin-top: 14px;
+}
+.plugin-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 16px;
+  margin-top: 20px;
+  font-size: 11px;
+}
+.plugin-card-footer > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+}
+.plugin-pending {
+  color: var(--accent);
+}
+.plugins-help {
+  margin: 24px 0;
+  max-width: 850px;
+  line-height: 1.8;
+}
+.plugin-details {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 900px;
+  padding-bottom: 30px;
+}
+.plugin-details > .button {
+  align-self: flex-start;
+}
+.plugin-details > .settings-card {
+  min-width: 0;
+}
+.plugin-capabilities {
+  margin-top: 20px;
+}
+.plugin-capabilities summary {
+  cursor: pointer;
+  color: var(--secondary);
+  padding: 8px 0;
+}
+.plugin-guide ol {
+  margin: 0;
+  padding-left: 26px;
+  display: grid;
+  gap: 22px;
+}
+.plugin-guide li {
+  padding-left: 8px;
+  line-height: 1.7;
+}
+.plugin-guide li::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
+.plugin-guide h4 {
+  margin-bottom: 6px;
+}
+.plugin-guide li p {
+  color: var(--secondary);
+}
+.plugin-guide code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--input);
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+.plugin-capabilities .setting-line {
+  gap: 20px;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .plugins-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .plugins-toolbar .search-input {
+    max-width: none;
+  }
+  .plugins-filter {
+    justify-content: space-between;
+  }
+}

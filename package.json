@@ -13,6 +13,8 @@
     "build": "node scripts/build-icon.js && vite build",
     "start": "npm run build && electron .",
     "test": "node --test tests/*.test.js",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"shared/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"shared/**/*.js\"",
     "verify:native": "node scripts/verify-native.js",
     "pack": "npm run build && npm run verify:native && electron-builder --dir",
     "dist": "npm run build && npm run verify:native && electron-builder"
@@ -30,6 +32,7 @@
     "concurrently": "^9.1.2",
     "electron": "^45.0.0",
     "electron-builder": "^26.0.0",
+    "prettier": "^3.9.10",
     "vite": "^6.3.0",
     "wait-on": "^8.0.3",
     "ws": "^8.18.0"

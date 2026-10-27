@@ -26,12 +26,15 @@ If your npm version blocks installation scripts, approve the scripts for `electr
 ```sh
 npm run dev    # Vite with hot reload + Electron
 npm test       # Core logic, local HTTP requests, plugin processes, and an OBS test server
+npm run format:check # Check renderer/shared formatting (npm run format to apply)
 npm run pack   # Unpacked desktop app in release/
 npm run dist   # Installer for the current platform
 npm run verify:native # Verify installed Node-API modules with Electron
 ```
 
 Linux: AppImage. Windows: NSIS. macOS: dmg. Build on the corresponding operating system for each platform. Code signing and notarization are not configured.
+
+For development boundaries, folder responsibilities and checks, see [Code structure](docs/CODE_STRUCTURE.md).
 
 ## Using the app
 

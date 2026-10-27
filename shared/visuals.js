@@ -1,14 +1,24 @@
 import { keyFontSize, resolvedKeyFont } from './key-text.js';
-export const backKey = { id: 'back', label: 'Back', icon: 'ArrowLeft', color: '#ad92ff', background: '#242231' };
+export const backKey = {
+  id: 'back',
+  label: 'Back',
+  icon: 'ArrowLeft',
+  color: '#ad92ff',
+  background: '#242231',
+};
 
 export function isKeyActive(key, obs, live = {}) {
   const native = live.native?.visuals?.[key?.id];
   if (typeof native?.active === 'boolean') return native.active;
-  const action = key?.actions?.find(a => a.type === 'obs');
+  const action = key?.actions?.find((a) => a.type === 'obs');
   if (!action || !obs?.connected) return false;
-  return action.command === 'scene' ? obs.scene === action.scene
-    : action.command === 'record' ? !!obs.recording
-    : action.command === 'stream' ? !!obs.streaming : !!obs.muted?.[action.input];
+  return action.command === 'scene'
+    ? obs.scene === action.scene
+    : action.command === 'record'
+      ? !!obs.recording
+      : action.command === 'stream'
+        ? !!obs.streaming
+        : !!obs.muted?.[action.input];
 }
 
 export function liveKey(key, live = {}) {
@@ -18,7 +28,19 @@ export function liveKey(key, live = {}) {
 
 // Only appearance matters: the same artwork can be reused on any page/slot.
 export function visualSignature(key, active = false) {
-  return JSON.stringify(key ? [key.label, key.icon, key.color, key.background, key.image || '', keyFontSize(key), !!active] : null);
+  return JSON.stringify(
+    key
+      ? [
+          key.label,
+          key.icon,
+          key.color,
+          key.background,
+          key.image || '',
+          keyFontSize(key),
+          !!active,
+        ]
+      : null,
+  );
 }
 
 export function collectVisuals(state, obs, live = {}) {
@@ -29,8 +51,15 @@ export function collectVisuals(state, obs, live = {}) {
     const signature = visualSignature(key, active);
     if (!entries.has(signature)) entries.set(signature, { key, active, signature });
   }
-  function visit(keys) { for (const key of keys) if (key) { add(key); visit(key.children || []); } }
-  add(null); add(backKey);
-  state.profiles.forEach(profile => visit(profile.keys));
+  function visit(keys) {
+    for (const key of keys)
+      if (key) {
+        add(key);
+        visit(key.children || []);
+      }
+  }
+  add(null);
+  add(backKey);
+  state.profiles.forEach((profile) => visit(profile.keys));
   return [...entries.values()];
 }
