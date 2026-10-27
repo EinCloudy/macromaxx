@@ -130,7 +130,7 @@ export class NativePlugins {
       const caps = record.state === 'loaded' ? instance.capabilities?.() || {} : {};
       if (record.state === 'loaded') Object.assign(status, instance.status?.() || {});
       const configuredDisabled = !manifest.required && !!state.settings.disabledNativePlugins?.includes(manifest.id);
-      plugins.push({ id: manifest.id, name: manifest.name, description: manifest.description, icon: manifest.ui?.icon, guide: manifest.guide, platforms: manifest.platforms, required: !!manifest.required, state: record.state, reason: record.reason, enabled: !configuredDisabled, restartRequired: manifest.platforms.includes(this.platform) && configuredDisabled !== (record.state === 'disabled'), capabilities: caps });
+      plugins.push({ id: manifest.id, name: manifest.name, description: manifest.description, icon: manifest.ui?.icon, guide: manifest.guide, actions: Object.keys(manifest.actions || {}), platforms: manifest.platforms, required: !!manifest.required, state: record.state, reason: record.reason, enabled: !configuredDisabled, restartRequired: manifest.platforms.includes(this.platform) && configuredDisabled !== (record.state === 'disabled'), capabilities: caps });
       for (const [id, value] of Object.entries(caps)) capabilities[id] = { ...value, provider: manifest.id };
       for (const type of Object.keys(manifest.actions || {})) actionTypes[type] = { ...this.availability({ type }), defaults: record.state === 'loaded' ? instance.defaults?.(type) || {} : {} };
     }

@@ -1,16 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api, desktop } from './api.js';
 import { Icon, iconNames } from './icons.jsx';
-import { catalog, makeAction, makeKey, makeProfile, uid, visibleKeys, duplicateKey } from '../shared/model.js';
+import { catalog, makeProfile, uid, visibleKeys, duplicateKey } from '../shared/model.js';
 import { renderKey } from './renderKeys.js';
 import { isKeyActive, collectVisuals, liveKey } from '../shared/visuals.js';
 import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
-import { NativeActionEditor, nativeActionAvailability } from '../plugins/native/ui.jsx';
+import { NativeActionEditor } from '../plugins/native/ui.jsx';
 import { Plugins } from './plugins.jsx';
 import { AutoProfileSettings } from './auto-profile-settings.jsx';
+import { actionLibrary, libraryAction, libraryKey } from '../shared/action-library.js';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
 const clone = value => structuredClone(value);
@@ -57,6 +58,8 @@ export default function App() {
   const backSelected = !!selectedSlot?.isBack;
   const key = backSelected ? null : selectedSlot?.key;
   const profile = state?.profiles.find(p => p.id === state.activeProfileId);
+  const library = actionLibrary(plugins, status);
+  const filteredLibrary = library.filter(item => (showUnavailable || item.availability.available) && `${item.name} ${item.description} ${item.group}`.toLowerCase().includes(search.toLowerCase()));
   const activeKey = k => isKeyActive(k, status.obs, status);
   const displayKeys = slots.map(slot => liveKey(slot.key, status));
   const imageBank = state ? collectVisuals(state, status.obs, status) : [];
@@ -74,7 +77,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [imageBankIdentity]);
   function editKey(updater) { if (!key) return; change(next => updater(visibleKeys(next, path)[selectedSlot.childIndex])); }
-  function place(type, index = selected) { if (!slots[index]) return; if (slots[index].isBack) return notify('Move the Back key to another slot first.'); change(next => { const list = visibleKeys(next, path); while (list.length < count - offset) list.push(null); list[slots[index].childIndex] = makeKey(type, undefined, status.native?.actionTypes?.[type]?.defaults); }); setSelected(index); setTab('edit'); setLongMode(false); }
+  function place(entry, index = selected) { const item = library.find(item => item.key === entry); if (!item?.availability.available || !slots[index]) return; if (slots[index].isBack) return notify('Move the Back key to another slot first.'); change(next => { const list = visibleKeys(next, path); while (list.length < count - offset) list.push(null); list[slots[index].childIndex] = libraryKey(item); }); setSelected(index); setTab('edit'); setLongMode(false); }
   function drop(event, index) {
     event.preventDefault();
     const type = event.dataTransfer.getData('action'), source = event.dataTransfer.getData('key');
@@ -143,10 +146,10 @@ export default function App() {
           {tab === 'library' ? <>
             <div className="library-heading"><h3>Your next shortcut</h3><p>Small keys. Big possibilities.</p><label className="checkbox-label"><input type="checkbox" checked={showUnavailable} onChange={e => setShowUnavailable(e.target.checked)} />Show unavailable actions</label></div>
             <div className="search-input"><Icon name="Search" size={16} /><input placeholder="Search actions …" value={search} onChange={event => setSearch(event.target.value)} aria-label="Search actions" /><kbd>⌕</kbd></div>
-            <div className="action-library">{[...new Set(catalog.map(c => c.group))].map(group => {
-              const items = catalog.filter(c => c.group === group && (showUnavailable || nativeActionAvailability(status, { type: c.type }).available) && `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase()));
-              return items.length > 0 && <div className="action-group" key={group}><h4>{group}<Icon name="ChevronDown" size={13} /></h4>{items.map(item => { const availability = nativeActionAvailability(status, { type: item.type }); return <button className="action-card" key={item.type} disabled={!availability.available} title={availability.available ? item.description : availability.reason} draggable={availability.available} onDragStart={event => event.dataTransfer.setData('action', item.type)} onClick={() => { if (key) { setDraftName(item.type); setModal('replace'); } else place(item.type); }}><span className={`action-icon ${item.group === 'Connections' ? 'blue' : item.group === 'Organization' ? 'amber' : ''}`}><Icon name={item.icon} size={19} /></span><span><strong>{item.name}</strong><small>{availability.available ? item.description : `${availability.name}: unavailable on this setup`}</small></span><Icon className="drag-handle" name="GripVertical" size={15} /></button>; })}</div>;
-            })}{!catalog.some(c => `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase())) && <div className="empty-detail">No matching actions found.</div>}</div>
+            <div className="action-library">{[...new Set(filteredLibrary.map(c => c.group))].map(group => {
+              const items = filteredLibrary.filter(c => c.group === group);
+              return <div className="action-group" key={group}><h4>{group}<Icon name="ChevronDown" size={13} /></h4>{items.map(item => { const availability = item.availability; return <button className="action-card" key={item.key} disabled={!availability.available} title={availability.available ? item.description : availability.reason} draggable={availability.available} onDragStart={event => event.dataTransfer.setData('action', item.key)} onClick={() => { if (key) { setDraftName(item.key); setModal('replace'); } else place(item.key); }}><span className={`action-icon ${item.group === 'Connections' ? 'blue' : item.group === 'Organization' ? 'amber' : ''}`}><Icon name={item.icon} size={19} /></span><span><strong>{item.name}</strong><small>{availability.available ? item.description : `${availability.name}: unavailable on this setup`}</small></span><Icon className="drag-handle" name="GripVertical" size={15} /></button>; })}</div>;
+            })}{!filteredLibrary.length && <div className="empty-detail">No matching actions found.</div>}</div>
             <div className="plugin-callout"><span><Icon name="Puzzle" size={23} /></span><div><strong>Take your deck further.</strong><p>Extend it with your own plugins.</p><button onClick={() => setPage('plugins')}>Explore plugins<Icon name="ArrowUpRight" size={13} /></button></div></div>
           </> : key ? <div className="properties">
             <div className="properties-title"><h3>Customize key</h3><span>#{selected + 1}</span></div>
@@ -159,7 +162,7 @@ export default function App() {
             <div className="segmented"><button className={!longMode ? 'active' : ''} onClick={() => setLongMode(false)}>Short press</button><button className={longMode ? 'active' : ''} onClick={() => setLongMode(true)}>Long press</button></div>
             {longMode && <p className="muted-text">Hold for at least 600 ms. If unassigned, the short-press action is used.</p>}
             {(longMode ? key.longActions : key.actions).map((action, index, all) => <ActionEditor key={action.id} action={action} index={index} total={all.length} state={state} status={status} plugins={plugins} update={patch => editKey(k => Object.assign((longMode ? k.longActions : k.actions)[index], patch))} remove={() => editKey(k => (longMode ? k.longActions : k.actions).splice(index, 1))} move={direction => editKey(k => { const list = longMode ? k.longActions : k.actions; [list[index], list[index + direction]] = [list[index + direction], list[index]]; })} perform={perform} />)}
-            <select aria-label="Add action to chain" className="add-action-select" value="" onChange={event => editKey(k => { (longMode ? k.longActions : k.actions).push(makeAction(event.target.value, status.native?.actionTypes?.[event.target.value]?.defaults)); })}><option value="">+ Add action</option>{catalog.filter(c => c.type !== 'folder' && nativeActionAvailability(status, { type: c.type }).available).map(c => <option key={c.type} value={c.type}>{c.name}</option>)}</select>
+            <select aria-label="Add action to chain" className="add-action-select" value="" onChange={event => { const item = library.find(item => item.key === event.target.value); if (item?.availability.available) editKey(k => { (longMode ? k.longActions : k.actions).push(libraryAction(item)); }); }}><option value="">+ Add action</option>{[...new Set(library.map(item => item.group))].map(group => <optgroup key={group} label={group}>{library.filter(item => item.group === group && item.type !== 'folder' && item.availability.available).map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</optgroup>)}</select>
             <label className="checkbox-label"><input type="checkbox" checked={key.stopOnError !== false} onChange={event => editKey(k => { k.stopOnError = event.target.checked; })} />Stop on error</label><Button className="primary full" icon="Play" onClick={() => execute(longMode)}>Test assignment</Button>
           </div> : <div className="properties-empty"><Icon name="MousePointer2" size={32} /><h3>One key, many possibilities.</h3><p>Assign an action to a key first.</p><Button onClick={() => setTab('library')}>Explore actions</Button></div>}
         </aside></div>
@@ -221,7 +224,7 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
   const input = (name, label, placeholder, multiline = false) => <Field label={label}>{multiline ? <textarea rows={3} value={action[name] || ''} placeholder={placeholder} onChange={e => update({ [name]: e.target.value })} /> : <input value={action[name] || ''} placeholder={placeholder} onChange={e => update({ [name]: e.target.value })} />}</Field>;
   const select = (name, label, options) => <Field label={label}><select value={action[name] || ''} onChange={e => update({ [name]: e.target.value })}>{options.map(([value, text]) => <option value={value} key={value}>{text}</option>)}</select></Field>;
   return <div className="action-editor">
-    <div className="action-editor-head"><span><b>{index + 1}</b><Icon name={item.icon} size={15} />{item.name}</span><div><Tool icon="ChevronUp" title="Move up" disabled={!index} onClick={() => move(-1)} /><Tool icon="ChevronDown" title="Move down" disabled={index === total - 1} onClick={() => move(1)} /><Tool icon="X" title="Remove action" onClick={remove} /></div></div>
+    <div className="action-editor-head"><span><b>{index + 1}</b><Icon name={item.icon} size={15} />{action.type === 'plugin' ? plugins.find(plugin => plugin.id === action.pluginId)?.name || action.pluginId || item.name : item.name}</span><div><Tool icon="ChevronUp" title="Move up" disabled={!index} onClick={() => move(-1)} /><Tool icon="ChevronDown" title="Move down" disabled={index === total - 1} onClick={() => move(1)} /><Tool icon="X" title="Remove action" onClick={remove} /></div></div>
     <NativeActionEditor action={action} update={update} status={status} perform={perform} />
     {action.type === 'hotkey' && <>
       <Field label="Key combination" hint="e.g. CTRL+SHIFT+M, ALT+F4, or META+E"><div className="input-with-button"><input value={recording ? 'Press your keys now …' : action.keys} onChange={e => update({ keys: e.target.value })} onKeyDown={e => { if (!recording) return; e.preventDefault(); const key = e.key; if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return; const tokens = [e.ctrlKey && 'CTRL', e.altKey && 'ALT', e.shiftKey && 'SHIFT', e.metaKey && 'META', ({ ' ': 'SPACE', ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', '+': 'PLUS' }[key] || key.toUpperCase())].filter(Boolean); update({ keys: tokens.join('+') }); setRecording(false); }} /><Tool icon={recording ? 'CircleStop' : 'CircleDot'} title="Record key combination" active={recording} onClick={event => { setRecording(!recording); event.currentTarget.parentElement.querySelector('input').focus(); }} /></div></Field>

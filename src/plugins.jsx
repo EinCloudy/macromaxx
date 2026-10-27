@@ -35,7 +35,7 @@ export function Plugins({ state, status, plugins, change, perform, flush, refres
           {plugin.restartRequired && <div className="notice" role="status"><Icon name="Info" size={16} />Restart MacroMaxx to apply this change.</div>}
           {plugin.reason && <p className="muted-text">{plugin.reason}</p>}
           {Object.keys(plugin.capabilities || {}).length > 0 && <details className="plugin-capabilities"><summary>Capabilities & diagnostics on this device</summary>{Object.entries(plugin.capabilities).map(([id, capability]) => <div key={id}><div className="setting-line"><strong>{id}</strong><span className="muted-text">{capability.available ? capability.ready === false ? 'Setup / permission required' : 'Available' : capability.reason || 'Unavailable'}</span></div>{Object.entries(capability.features || {}).map(([name, value]) => <p className="muted-text" key={name}>{name}: {Array.isArray(value) ? value.join(', ') || 'None' : typeof value === 'boolean' ? value ? 'Available' : 'Not available' : String(value)}</p>)}</div>)}</details>}
-        </> : <p className="muted-text">Runs in a separate process with your user permissions. Configure this plugin on a key using the Plugin action in the Deck Editor.</p>}
+        </> : <p className="muted-text">Runs in a separate process with your user permissions. Find this plugin's own action in the Deck Editor and drag it onto a key.</p>}
       </section>
       {plugin.kind === 'native' && <PluginGuide guide={plugin.guide} />}
       {plugin.kind === 'native' && <NativePluginSettings key={plugin.id} plugin={plugin} state={state} status={status} change={change} perform={perform} flush={flush} />}

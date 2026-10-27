@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pluginLibrary } from '../shared/plugin-library.js';
 
-const native = (patch = {}) => ({ id: 'media', name: 'Media', state: 'loaded', enabled: true, ...patch });
+const native = (patch = {}) => ({ id: 'media', name: 'Media', actions: ['media'], state: 'loaded', enabled: true, ...patch });
 
 test('Plugin library combines native and user plugins without ID collisions', () => {
   const plugins = pluginLibrary([{ id: 'media', name: 'Custom media', fields: [] }], [native()], {});
@@ -25,4 +25,9 @@ test('Required and unsupported plugins do not request restarts', () => {
   const items = pluginLibrary([], [native({ required: true }), native({ id: 'linux', state: 'unsupported' })], { disabledNativePlugins: ['media', 'linux'] });
   assert.equal(items[0].enabled, true);
   assert.ok(items.every(plugin => !plugin.restartRequired));
+});
+
+test('Technical plugins without actions stay out of the plugin library', () => {
+  const items = pluginLibrary([], [native(), native({ id: 'backend', required: true, actions: [] }), native({ id: 'service', actions: undefined })], {});
+  assert.deepEqual(items.map(item => item.id), ['media']);
 });
