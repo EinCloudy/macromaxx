@@ -1,0 +1,17 @@
+{
+  "id": "discord", "type": "bundled-native", "apiVersion": 1,
+  "name": "Discord", "description": "Local Discord desktop mute and deafen control with live status. Experimental OAuth PKCE integration; Discord RPC approval/public-client support is required.",
+  "platforms": ["linux", "win32", "darwin"], "order": 95, "main": "index.js",
+  "actions": { "discord": "discord.voice" },
+  "ui": { "icon": "Headphones", "settings": ["DiscordSettings"], "editors": { "discord": "DiscordEditor" } },
+  "guide": {
+    "title": "Connect Discord (experimental)",
+    "intro": "Uses the official desktop client over local IPC. No MacroMaxx server, bot, client secret, or account token is used. OAuth contacts Discord directly.",
+    "steps": [
+      { "title": "Application configuration", "text": "Uses application 1564628426386710581. Native voice authorization sends a PKCE challenge through local RPC; it does not use a browser callback. RPC/PKCE compatibility and application eligibility still need verification." },
+      { "title": "Start Discord", "text": "Run the official Discord desktop app on this computer and sign in. The browser version is not supported. Sandboxed packages may need additional IPC access." },
+      { "title": "Authorize in Discord", "text": "Click Connect to Discord and approve the requested voice permissions directly in the Discord desktop client. The current authorization stage is displayed. If this fails, report the stage and error without sharing codes or tokens. No client secret or third-party token service is used." },
+      { "title": "Assign actions", "text": "Add Discord in the Deck Editor and choose microphone mute or deafen. The highlighted key reflects Discord's reported state. Tokens are kept only in memory; reconnect after restarting MacroMaxx or when the session expires." }
+    ]
+  }
+}

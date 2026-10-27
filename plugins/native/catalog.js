@@ -10,4 +10,5 @@ export const nativeActionDefinitions = [
   { type: 'desktop', provider: 'linux-desktop', order: 60, name: 'Desktop & windows', icon: 'Monitor', group: 'System', description: 'Workspaces, windows, and monitors', defaults: { command: 'workspace-next' } },
   { type: 'sound', provider: 'soundboard', order: 65, name: 'Soundboard', icon: 'Radio', group: 'System', description: 'Play audio using a shared default-output backend', defaults: { command: 'play', path: '', route: 'output', output: 'default', volume: 80, loop: false, behavior: 'restart' } },
   { type: 'obs', provider: 'obs', order: 80, name: 'OBS Studio', icon: 'Video', group: 'Connections', description: 'Scenes, recording, and streaming', defaults: { command: 'scene', scene: '', input: '' } },
+  { type: 'discord', provider: 'discord', order: 85, name: 'Discord', icon: 'Headphones', group: 'Connections', description: 'Microphone mute and deafen with live status', defaults: { command: 'mute', mode: 'toggle' } },
 ];

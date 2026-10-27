@@ -41,7 +41,7 @@ function fixture(platform, disabled = [], failId) {
 test('Windows and macOS never import Linux-only native plugins', async () => {
   for (const platform of ['win32', 'darwin']) {
     const f = fixture(platform); await f.host.initialize();
-    assert.deepEqual(f.loaded, ['keyboard', 'session', 'launcher', 'media', 'soundboard', 'obs']);
+    assert.deepEqual(f.loaded, ['keyboard', 'session', 'launcher', 'media', 'soundboard', 'obs', 'discord']);
     for (const id of ['linux-audio', 'linux-desktop']) assert.equal(f.host.records.find(r => r.manifest.id === id).state, 'unsupported');
     await assert.rejects(f.host.execute({ type: 'audio', command: 'mute' }), /Available on linux/);
     assert.equal(f.host.snapshot().native.actionTypes.audio.available, false);

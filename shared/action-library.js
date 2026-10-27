@@ -4,7 +4,7 @@ const actionGroups = [
   ['Keyboard & text', ['hotkey', 'text']],
   ['Media & audio', ['media', 'audio', 'sound']],
   ['Apps & system', ['app', 'script', 'desktop']],
-  ['Connections', ['url', 'webhook', 'obs']],
+  ['Connections', ['url', 'webhook', 'obs', 'discord']],
   ['Organization', ['folder', 'profile']],
   ['Workflows', ['delay']],
 ];
