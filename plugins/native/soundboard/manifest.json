@@ -2,5 +2,15 @@
   "id": "soundboard", "type": "bundled-native", "apiVersion": 1, "name": "Shared Soundboard",
   "description": "Cross-platform default-output playback using node-web-audio-api; Linux routing is provided by a separate plugin.",
   "platforms": ["linux", "win32", "darwin"], "order": 80, "main": "index.js",
-  "actions": { "sound": "sound.play" }, "legacyOperations": { "stopSounds": "stop" }
+  "actions": { "sound": "sound.play" }, "legacyOperations": { "stopSounds": "stop" },
+  "ui": { "icon": "Radio", "settings": ["SharedSoundSettings"], "editors": { "sound": "SoundEditor" } },
+  "guide": {
+    "title": "Play sounds on your deck",
+    "intro": "Default-output playback is supported on Linux, Windows and macOS when the shared audio backend is available. Named outputs and virtual microphone routes are Linux Audio features, not cross-platform features.",
+    "steps": [
+      { "title": "Enable and check playback", "text": "Enable Shared Soundboard, restart MacroMaxx, and check the backend status below." },
+      { "title": "Assign a sound", "text": "Add a Soundboard action in Deck Editor, choose an audio file, leave the route at default output, then test the key." },
+      { "title": "Optional Linux routing", "text": "For playback into a voice app, enable Linux Audio and follow its virtual microphone guide. Basic speaker playback does not require Linux Audio." }
+    ]
+  }
 }

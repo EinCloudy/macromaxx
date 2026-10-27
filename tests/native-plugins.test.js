@@ -41,8 +41,8 @@ function fixture(platform, disabled = [], failId) {
 test('Windows and macOS never import Linux-only native plugins', async () => {
   for (const platform of ['win32', 'darwin']) {
     const f = fixture(platform); await f.host.initialize();
-    assert.deepEqual(f.loaded, ['keyboard', 'session', 'launcher', 'media', 'soundboard']);
-    for (const id of ['linux-audio', 'linux-desktop', 'linux-soundboard']) assert.equal(f.host.records.find(r => r.manifest.id === id).state, 'unsupported');
+    assert.deepEqual(f.loaded, ['keyboard', 'session', 'launcher', 'media', 'soundboard', 'obs']);
+    for (const id of ['linux-audio', 'linux-desktop']) assert.equal(f.host.records.find(r => r.manifest.id === id).state, 'unsupported');
     await assert.rejects(f.host.execute({ type: 'audio', command: 'mute' }), /Available on linux/);
     assert.equal(f.host.snapshot().native.actionTypes.audio.available, false);
     await f.host.close();
@@ -98,6 +98,33 @@ test('Every native action contract has exactly one bundled manifest owner', asyn
     assert.equal(owners.length, 1); assert.equal(owners[0].manifest.id, action.provider);
   }
   await f.host.close();
+});
+
+test('Native library discovers the combined audio manifest, guide and legacy routing operations', async () => {
+  const f = fixture('linux'); await f.host.initialize();
+  const plugins = f.host.snapshot().native.plugins;
+  assert.equal(plugins.filter(plugin => plugin.id === 'linux-audio').length, 1);
+  assert.equal(plugins.some(plugin => plugin.id === 'linux-soundboard'), false);
+  const audio = plugins.find(plugin => plugin.id === 'linux-audio');
+  assert.equal(audio.icon, 'Mic'); assert.ok(audio.guide.steps.length >= 6);
+  const handlers = f.host.legacyHandlers();
+  assert.equal(typeof handlers.setupSoundboard, 'function');
+  assert.equal(typeof handlers.removeSoundboard, 'function');
+  await f.host.close();
+});
+
+test('OBS can be disabled on every supported platform while saved assignments remain portable', async () => {
+  for (const platform of ['linux', 'win32', 'darwin']) {
+    const f = fixture(platform, ['obs']);
+    f.state.profiles[0].keys[5] = makeKey('obs');
+    await f.host.initialize();
+    assert.equal(f.loaded.includes('obs'), false);
+    assert.equal(f.host.snapshot().native.actionTypes.obs.available, false);
+    assert.doesNotThrow(() => validateState(f.state));
+    await assert.rejects(f.host.execute({ type: 'obs', command: 'record' }), /Disabled/);
+    await assert.rejects(f.host.legacyHandlers().connectOBS(), /Disabled/);
+    await f.host.close();
+  }
 });
 
 test('Windows and macOS keyboard adapters use only their own native helpers', async t => {

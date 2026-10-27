@@ -4,7 +4,6 @@ export const uid = () => globalThis.crypto.randomUUID();
 export const catalog = [...nativeActionDefinitions,
   { type: 'url', order: 20, name: 'Website', icon: 'Globe', group: 'System', description: 'Open a URL in your browser', defaults: { url: 'https://example.com' } },
   { type: 'webhook', order: 70, name: 'Webhook', icon: 'Webhook', group: 'Connections', description: 'Send an HTTP request to your workflow', defaults: { url: '', method: 'POST', headers: '{}', body: '{}' } },
-  { type: 'obs', order: 80, name: 'OBS Studio', icon: 'Video', group: 'Connections', description: 'Scenes, recording, and streaming', defaults: { command: 'scene', scene: '', input: '' } },
   { type: 'folder', order: 90, name: 'Folder', icon: 'Folder', group: 'Organization', description: 'Make room for more actions', defaults: {} },
   { type: 'profile', order: 100, name: 'Switch profile', icon: 'Layers', group: 'Organization', description: 'Activate another setup', defaults: { profileId: '' } },
   { type: 'delay', order: 110, name: 'Delay', icon: 'Timer', group: 'Workflows', description: 'Add a pause to your action chain', defaults: { ms: 500 } },

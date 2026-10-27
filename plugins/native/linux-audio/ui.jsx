@@ -2,6 +2,7 @@ import React from 'react';
 import { Icon } from '../../../src/icons.jsx';
 import { api } from '../../../src/api.js';
 import { Select } from '../fields.jsx';
+export { SoundSettings } from './routing-ui.jsx';
 export function AudioEditor({ action, update, status }) {
   const audio = status.audio || {}, kind = action.kind || 'input';
   const targets = kind === 'input' ? audio.inputs : kind === 'output' ? audio.outputs : audio.applications;

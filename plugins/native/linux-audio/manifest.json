@@ -1,6 +1,20 @@
 {
-  "id": "linux-audio", "type": "bundled-native", "apiVersion": 1, "name": "Linux Audio & Microphone",
-  "description": "PipeWire-Pulse/PulseAudio mixer, input/output selection, application volume, and microphone holds. Requires pactl.",
+  "id": "linux-audio", "type": "bundled-native", "apiVersion": 1, "name": "Linux Audio",
+  "description": "One integration for device and application volume, microphone controls, sound routing, and a virtual microphone. Linux only; requires PipeWire/PulseAudio tools.",
   "platforms": ["linux"], "order": 50, "main": "index.js",
-  "actions": { "audio": "audio.mixer" }, "legacyOperations": { "refreshAudio": "refresh" }
+  "actions": { "audio": "audio.mixer" },
+  "legacyOperations": { "refreshAudio": "refresh", "setupSoundboard": "setup", "removeSoundboard": "remove" },
+  "ui": { "icon": "Mic", "settings": ["AudioSettings", "SoundSettings"], "editors": { "audio": "AudioEditor" } },
+  "guide": {
+    "title": "Set up Linux Audio",
+    "intro": "Start with device controls. Virtual microphone routing is optional and is only needed to send soundboard audio into a voice app. No keyboard permission is required.",
+    "steps": [
+      { "title": "Enable the integration", "text": "Enable Linux Audio here and restart MacroMaxx. One switch controls the mixer and all Linux routing features." },
+      { "title": "Install the tools you need", "text": "Mixer controls need pactl and a running PulseAudio-compatible server. Routing additionally needs ffmpeg and pw-play with PipeWire. Use your distribution's package manager; these commands are examples, not automatic installers.", "commands": ["Debian/Ubuntu: sudo apt install pulseaudio-utils ffmpeg pipewire-bin", "Arch: sudo pacman -S libpulse ffmpeg pipewire-audio"] },
+      { "title": "Check your devices", "text": "Use Refresh audio devices below. Your microphones and outputs should appear in the device list. If they do not, check that your audio server is running.", "commands": ["pactl info", "pw-play --version", "ffmpeg -version"] },
+      { "title": "Assign volume and microphone actions", "text": "In Deck Editor, add Audio & microphone to a key. Choose an input, output, or application, then mute or adjust its volume. Put Push-to-talk or Push-to-mute first on a physical key; release restores the previous microphone state." },
+      { "title": "Optional: send soundboard audio to a voice app", "text": "Enable Shared Soundboard separately. In Sound routing below, optionally select a physical microphone to mix in, leave monitoring at None to avoid feedback, then click Set up virtual microphone. Choose MacroMaxx Virtual Microphone as the input in Discord, OBS, or your voice app. On a Soundboard key, choose the virtual microphone route or both routes." },
+      { "title": "Stop, reset, or troubleshoot", "text": "Stop all sounds stops routed playback. Remove app-created routing removes only routing owned by this session; defaults are not changed. If routing disappears after restarting, set it up again. Check Capabilities & diagnostics for missing tools. Disabling Linux Audio does not disable Shared Soundboard's normal default-output playback." }
+    ]
+  }
 }

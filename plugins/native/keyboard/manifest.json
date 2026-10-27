@@ -3,5 +3,6 @@
   "description": "Shared RobotJS keyboard/media keys on Windows, macOS and X11; native Wayland portal/EIS and OS helper fallbacks.",
   "platforms": ["linux", "win32", "darwin"], "order": 10, "required": true, "main": "index.js",
   "actions": { "hotkey": "keyboard.hotkey", "text": "keyboard.text" },
-  "legacyOperations": { "diagnostics": "diagnostics", "setupInput": "setup", "forgetInput": "forget", "installUdev": "installUdev" }
+  "legacyOperations": { "diagnostics": "diagnostics", "setupInput": "setup", "forgetInput": "forget", "installUdev": "installUdev" },
+  "ui": { "icon": "Keyboard", "settings": ["KeyboardSettings"] }
 }

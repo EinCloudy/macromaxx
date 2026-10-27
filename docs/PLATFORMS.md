@@ -6,7 +6,8 @@ MacroMaxx has a platform-neutral core and bundled native integration plugins. A 
 | --- | --- | --- | --- |
 | Editor, profiles, folders, Back position, fonts, import/export | Core | Core | Core |
 | Stream Deck keys, images, brightness, animations, reconnect | Shared HID library; USB permissions may need setup | Shared HID library | Shared HID library |
-| Webhooks, URLs, OBS WebSocket, delays/action chains | Core | Core | Core |
+| Webhooks, URLs, delays/action chains | Core | Core | Core |
+| OBS WebSocket scenes, recording, streaming, mute | OBS Studio plugin | OBS Studio plugin | OBS Studio plugin |
 | User JavaScript plugin worker API | Yes; plugin code must be portable | Yes; plugin code must be portable | Yes; plugin code must be portable |
 | Hotkeys and text paste | RobotJS on X11, native portal/EIS on Wayland; xdotool fallback | Shared RobotJS; PowerShell fallback | Shared RobotJS; System Events fallback; permissions required |
 | Separate key hold/release | Yes | Yes | Shared RobotJS; not implemented by the legacy AppleScript fallback |
@@ -18,7 +19,7 @@ MacroMaxx has a platform-neutral core and bundled native integration plugins. A 
 | Player selection, track metadata, player volume | Native Media / MPRIS | Not implemented | Not implemented |
 | Device/app audio mixer, mic holds | Linux Audio plugin | No bundled adapter | No bundled adapter |
 | Default-output sound playback, volume, loop/stop/overlap | Shared node-web-audio-api; PipeWire fallback | Shared node-web-audio-api | Shared node-web-audio-api |
-| Named outputs and virtual microphone routing | Linux Audio Routing plugin | No bundled routing adapter | No bundled routing adapter |
+| Named outputs and virtual microphone routing | Linux Audio plugin | No bundled routing adapter | No bundled routing adapter |
 | Native desktop/window actions and focus reporting | Linux Desktop plugin: KDE, GNOME extension, or X11 | No bundled adapter; use hotkeys/scripts where applicable | No bundled adapter; use hotkeys/scripts where applicable |
 | Automatic profile rule engine | Core; needs native focus provider | Core; no bundled focus provider | Core; no bundled focus provider |
 | Background/tray/single instance/window recreation | Core | Core | Core |
@@ -33,12 +34,12 @@ The UI derives availability from the loaded plugins, dependencies, and action va
 - `plugins/native/launcher/`: executable/file launch, desktop entries, Flatpak, POSIX scripts.
 - `plugins/native/media/`: OS media adapters and Linux MPRIS.
 - `plugins/native/session/`: login items, XDG launcher, reopening shortcut, portal bootstrap.
-- `plugins/native/linux-audio/`: PipeWire-Pulse/PulseAudio mixer and holds.
+- `plugins/native/linux-audio/`: PipeWire-Pulse/PulseAudio mixer, microphone holds, ffmpeg/PipeWire named-output playback, virtual microphone and routing; one optional integration.
 - `plugins/native/linux-desktop/`: KDE/GNOME/X11 actions and focus; GNOME extension bundled here.
 - `plugins/native/soundboard/`: shared default-output Web Audio playback in an isolated native worker.
-- `plugins/native/linux-soundboard/`: ffmpeg/PipeWire named-output playback, virtual microphone and routing.
+- `plugins/native/obs/`: cross-platform OBS WebSocket connection, actions, live key state, and setup UI.
 
-**Settings → Bundled native plugins** lists platforms, loaded/unsupported/error state, capability readiness, and optional plugin switches. Changes to optional plugin enablement take effect after restart. Required base adapters remain included. User worker plugins remain a separate API.
+**Plugins** lists native and user integrations together, with platforms, loaded/unsupported/error state, capability readiness, and optional native plugin switches. Open **Details** for the plugin's guide and settings. Changes to optional plugin enablement take effect after restart. Required base adapters remain included. User worker plugins remain a separate API.
 
 ## Default NPM backends and fallbacks
 
@@ -50,7 +51,7 @@ RobotJS is preferred for Windows/macOS/X11 keyboard and global media keys. It is
 
 Shared sound playback uses the Web Audio API for decoding, gain, looping, stopping and overlap on the default output. It does not claim cross-platform virtual microphones, per-application mixer control, or named-device routing. The library's Linux binaries may need libjack/pipewire-jack. The Linux routing plugin can provide a fallback if the shared audio binary/backend is unavailable. Supported formats depend on the library's decoder. File input is limited to 64 MB and decoded cache to 64 MB; larger streaming/routing needs the native provider.
 
-Existing disabled Linux soundboard preferences are migrated once to keep shared playback disabled too. Afterwards the shared player and Linux routing plugins can be enabled independently.
+Legacy pre-split disabled Linux soundboard preferences keep shared playback disabled too. Mixer and Linux routing are now combined as Linux Audio: if either old Linux plugin was disabled, the combined plugin stays disabled. Existing version-2 shared playback preferences are not changed. Shared Soundboard remains separately switchable for cross-platform default-output playback.
 
 ## Portability of saved data
 

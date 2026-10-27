@@ -8,7 +8,8 @@ import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
-import { NativeActionEditor, NativeSettingsPanels, NativePluginsSettings, nativeActionAvailability } from '../plugins/native/ui.jsx';
+import { NativeActionEditor, nativeActionAvailability } from '../plugins/native/ui.jsx';
+import { Plugins } from './plugins.jsx';
 import { AutoProfileSettings } from './auto-profile-settings.jsx';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
@@ -101,6 +102,7 @@ export default function App() {
       <div className="nav-label">WORKSPACE</div>
       <button className={`nav-item ${page === 'editor' ? 'selected' : ''}`} onClick={() => setPage('editor')}><Icon name="LayoutGrid" size={18} />Deck Editor<kbd>{count}</kbd></button>
       <button className={`nav-item ${page === 'activity' ? 'selected' : ''}`} onClick={() => setPage('activity')}><Icon name="Activity" size={18} />Activity{logs.some(l => l.level === 'error') && <span className="nav-dot" />}</button>
+      <button className={`nav-item ${page === 'plugins' ? 'selected' : ''}`} onClick={() => setPage('plugins')}><Icon name="Puzzle" size={18} />Plugins</button>
       <div className="nav-label profiles-label">PROFILES<Tool icon="Plus" title="Add profile" onClick={() => { setDraftName(''); setModal('newProfile'); }} /></div>
       <div className="profile-list">{state.profiles.map((p, i) => <button key={p.id} className={`profile-item ${p.id === state.activeProfileId ? 'selected' : ''}`} onClick={() => { navigate({ profileId: p.id }); setPage('editor'); }}><span className="profile-icon" style={{ color: colors[i % colors.length] }}><Icon name={p.icon || 'Layers'} size={16} /></span><span>{p.name}</span>{p.id === state.activeProfileId && <span className="tiny-dot" />}</button>)}</div>
       <div className="sidebar-bottom">
@@ -110,7 +112,7 @@ export default function App() {
       </div>
     </aside>
     <main className="main">
-      <header className="topbar"><div className="breadcrumb">Workspace<Icon name="ChevronRight" size={14} /><span>{page === 'editor' ? 'Deck Editor' : page === 'activity' ? 'Activity' : 'Settings'}</span></div><div className="topbar-actions"><span className={`save-status ${saveState === 'Save failed' ? 'error' : ''}`}><Icon name={saveState === 'Saved' ? 'CloudCheck' : 'CloudUpload'} size={15} />{saveState}</span><span className="separator" /><Tool icon="CircleHelp" title="Quick guide" onClick={() => setModal('help')} /><div className="user-avatar">M</div></div></header>
+      <header className="topbar"><div className="breadcrumb">Workspace<Icon name="ChevronRight" size={14} /><span>{page === 'editor' ? 'Deck Editor' : page === 'activity' ? 'Activity' : page === 'plugins' ? 'Plugins' : 'Settings'}</span></div><div className="topbar-actions"><span className={`save-status ${saveState === 'Save failed' ? 'error' : ''}`}><Icon name={saveState === 'Saved' ? 'CloudCheck' : 'CloudUpload'} size={15} />{saveState}</span><span className="separator" /><Tool icon="CircleHelp" title="Quick guide" onClick={() => setModal('help')} /><div className="user-avatar">M</div></div></header>
       {page === 'editor' ? <>
         <section className="page-heading"><div><div className="eyebrow">YOUR SETUP. YOUR RULES.</div><h1>One press. Total control<span>.</span></h1><p>Turn your Stream Deck into your personal control center.</p></div><Button icon="Download" onClick={() => perform(async () => { await flush(); return api.exportWorkspace(); }, 'Export dialog closed')}>Export</Button></section>
         <div className="editor-layout"><section className="deck-panel">
@@ -145,7 +147,7 @@ export default function App() {
               const items = catalog.filter(c => c.group === group && (showUnavailable || nativeActionAvailability(status, { type: c.type }).available) && `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase()));
               return items.length > 0 && <div className="action-group" key={group}><h4>{group}<Icon name="ChevronDown" size={13} /></h4>{items.map(item => { const availability = nativeActionAvailability(status, { type: item.type }); return <button className="action-card" key={item.type} disabled={!availability.available} title={availability.available ? item.description : availability.reason} draggable={availability.available} onDragStart={event => event.dataTransfer.setData('action', item.type)} onClick={() => { if (key) { setDraftName(item.type); setModal('replace'); } else place(item.type); }}><span className={`action-icon ${item.group === 'Connections' ? 'blue' : item.group === 'Organization' ? 'amber' : ''}`}><Icon name={item.icon} size={19} /></span><span><strong>{item.name}</strong><small>{availability.available ? item.description : `${availability.name}: unavailable on this setup`}</small></span><Icon className="drag-handle" name="GripVertical" size={15} /></button>; })}</div>;
             })}{!catalog.some(c => `${c.name} ${c.description}`.toLowerCase().includes(search.toLowerCase())) && <div className="empty-detail">No matching actions found.</div>}</div>
-            <div className="plugin-callout"><span><Icon name="Puzzle" size={23} /></span><div><strong>Take your deck further.</strong><p>Extend it with your own plugins.</p><button onClick={() => setPage('settings')}>Explore plugins<Icon name="ArrowUpRight" size={13} /></button></div></div>
+            <div className="plugin-callout"><span><Icon name="Puzzle" size={23} /></span><div><strong>Take your deck further.</strong><p>Extend it with your own plugins.</p><button onClick={() => setPage('plugins')}>Explore plugins<Icon name="ArrowUpRight" size={13} /></button></div></div>
           </> : key ? <div className="properties">
             <div className="properties-title"><h3>Customize key</h3><span>#{selected + 1}</span></div>
             <Field label="Label"><input value={key.label} maxLength={80} onChange={event => editKey(k => { k.label = event.target.value; })} /></Field>
@@ -165,7 +167,7 @@ export default function App() {
       </> : page === 'activity' ? <>
         <section className="page-heading"><div><div className="eyebrow">EVERYTHING AT A GLANCE</div><h1>Your workflow, live<span>.</span></h1><p>Executed actions and useful error messages.</p></div><Button icon="Square" onClick={() => perform(() => api.cancel(), 'Action chains canceled')}>Stop all</Button></section>
         <section className="activity-panel"><div className="panel-top"><strong>Activity log</strong><Button className="small" icon="Trash2" onClick={() => setLogs([])}>Clear</Button></div>{logs.length ? logs.map(item => <div className={`log-row ${item.level}`} key={item.id}><span className="log-icon"><Icon name={item.level === 'error' ? 'CircleAlert' : item.level === 'success' ? 'Check' : 'Info'} size={18} /></span><div><strong>{item.title}</strong><p>{item.message}</p></div><time>{new Date(item.time).toLocaleTimeString('en-GB')}</time></div>) : <div className="large-empty"><Icon name="Activity" size={40} /><h3>Ready for your first workflow.</h3><p>Run a key to see its result here.</p></div>}</section>
-      </> : <Settings state={state} status={status} plugins={plugins} change={change} perform={perform} flush={flush} refreshPlugins={() => api.plugins().then(setPlugins)} />}
+      </> : page === 'plugins' ? <Plugins state={state} status={status} plugins={plugins} change={change} perform={perform} flush={flush} refreshPlugins={() => api.plugins().then(setPlugins)} /> : <Settings state={state} status={status} change={change} perform={perform} flush={flush} />}
     </main>
     {toast && <div role="status" className={`toast ${toast.error ? 'error' : ''}`}><Icon name={toast.error ? 'CircleAlert' : 'CheckCircle2'} size={19} /><span>{toast.message}</span><Tool icon="X" title="Close" onClick={() => setToast(null)} /></div>}
     {modal && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setModal(null); }}><div className="modal" role="dialog" aria-modal="true">
@@ -182,7 +184,7 @@ export default function App() {
         <Button className="full danger" icon="Trash2" disabled={state.profiles.length < 2} onClick={() => { change(s => { s.profiles = s.profiles.filter(p => p.id !== profile.id); s.activeProfileId = s.profiles[0].id; }); setPath([]); setModal(null); }}>Delete profile</Button>
       </> : <>
         <div className="modal-symbol"><Icon name="Sparkles" size={28} /></div><h2>Your workflow starts here.</h2>
-        <p>1. Drag an action from the library onto a key.<br /><br />2. Use Properties to customize its label, icon, and action.<br /><br />3. Click Test or press the physical key.<br /><br />Double-click to open folders. Add multiple actions to a key to build a chain. Trigger a running chain again to stop it.<br /><br />Open Settings to set up USB access, Wayland keyboard input, OBS, and plugins.</p><Button className="primary full" onClick={() => setModal(null)}>Let's go</Button>
+        <p>1. Drag an action from the library onto a key.<br /><br />2. Use Properties to customize its label, icon, and action.<br /><br />3. Click Test or press the physical key.<br /><br />Double-click to open folders. Add multiple actions to a key to build a chain. Trigger a running chain again to stop it.<br /><br />Open Plugins to connect OBS, manage extensions, and set up keyboard input and USB access. Open Settings to customize the app.</p><Button className="primary full" onClick={() => setModal(null)}>Let's go</Button>
       </>}
     </div></div>}
   </div>;
@@ -231,17 +233,11 @@ function ActionEditor({ action, index, total, update, remove, move, state, statu
     {action.type === 'delay' && <Field label="Delay in milliseconds"><input type="number" min="0" max="300000" value={action.ms} onChange={e => update({ ms: Number(e.target.value) })} /></Field>}
     {action.type === 'profile' && select('profileId', 'Target profile', [['', 'Choose a profile …'], ...state.profiles.map(p => [p.id, p.name])])}
     {action.type === 'folder' && <p className="muted-text">Double-click the key to open its folder. You can drag the Back key to any slot inside the folder.</p>}
-    {action.type === 'obs' && <>
-      {select('command', 'OBS action', [['scene', 'Switch scene'], ['record', 'Toggle recording'], ['stream', 'Toggle streaming'], ['mute', 'Toggle audio mute']])}
-      {action.command === 'scene' && <>{input('scene', 'Scene name', 'e.g. Desktop')}<datalist id={`scenes-${action.id}`}>{status.obs?.scenes?.map(s => <option key={s}>{s}</option>)}</datalist>{status.obs?.scenes?.length > 0 && select('scene', 'Available scenes', [['', 'Choose a scene …'], ...status.obs.scenes.map(s => [s, s])])}</>}
-      {action.command === 'mute' && <>{input('input', 'Audio source', 'Mic/Aux')}{status.obs?.inputs?.length > 0 && select('input', 'Available sources', [['', 'Choose a source …'], ...status.obs.inputs.map(s => [s, s])])}</>}
-      {!status.obs?.connected && <p className="muted-text">Connect OBS in Settings first.</p>}
-    </>}
     {action.type === 'plugin' && <>{select('pluginId', 'Plugin', plugins.map(p => [p.id, p.name]))}{(plugins.find(p => p.id === action.pluginId)?.fields || []).map(field => { let config; try { config = JSON.parse(action.config || '{}'); } catch { config = {}; } return <Field key={field.key} label={field.label}><input value={config[field.key] ?? field.default ?? ''} onChange={e => update({ config: JSON.stringify({ ...config, [field.key]: e.target.value }, null, 2) })} /></Field>; })}{input('config', 'Configuration (JSON)', '{}', true)}</>}
   </div>;
 }
 
-function Settings({ state, status, plugins, change, perform, flush, refreshPlugins }) {
+function Settings({ state, status, change, perform, flush }) {
   const [busy, setBusy] = useState('');
   const task = async (name, fn, message) => { setBusy(name); await perform(fn, message); setBusy(''); };
   return <>
@@ -249,28 +245,12 @@ function Settings({ state, status, plugins, change, perform, flush, refreshPlugi
     <div className="settings-grid">
       <AnimationSettings state={state} change={change} />
       <TypographySettings state={state} change={change} />
-      <NativePluginsSettings state={state} status={status} change={change} />
-      <NativeSettingsPanels state={state} status={status} change={change} perform={perform} />
       <AutoProfileSettings state={state} status={status} change={change} />
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Usb" /></span><div><h3>Stream Deck</h3><p>{status.device?.name || 'Virtual device'}</p></div></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}
         <Button icon="RefreshCw" disabled={!!busy} onClick={() => task('reconnect', () => api.reconnect(), 'Device scan refreshed')}>Reconnect Stream Deck</Button>
         <p className="muted-text">Hardware discovery, image rendering, brightness, and reconnects use the cross-platform device library. OS permission setup belongs to the native keyboard plugin.</p>
-      </section>
-      <section className="settings-card">
-        <div className="settings-title"><span className="action-icon blue"><Icon name="Video" /></span><div><h3>OBS Studio</h3><p>Your studio, right on your deck.</p></div><span className={`connection ${status.obs?.connected ? 'connected' : ''}`}><i />{status.obs?.connected ? 'Connected' : 'Offline'}</span></div>
-        <p className="settings-description">In OBS, enable the server under Tools → WebSocket Server Settings (OBS 28+).</p>
-        <Field label="WebSocket address"><input value={state.settings.obsUrl} onChange={e => change(s => { s.settings.obsUrl = e.target.value; })} /></Field><Field label="Server password"><input type="password" autoComplete="off" placeholder="Optional" value={state.settings.obsPassword} onChange={e => change(s => { s.settings.obsPassword = e.target.value; })} /></Field>
-        <Button icon={status.obs?.connected ? 'Unplug' : 'Plug'} className="primary" disabled={!!busy} onClick={() => task('obs', async () => { await flush(); if (status.obs?.connected) await api.disconnectOBS(); else await api.connectOBS(); }, status.obs?.connected ? 'OBS disconnected' : 'OBS connected')}>{busy === 'obs' ? 'Connecting …' : status.obs?.connected ? 'Disconnect' : 'Connect to OBS'}</Button>
-        {status.obs?.connected && <div className="obs-live"><span><i className="green-dot" />{status.obs.scene}</span><span>REC {status.obs.recording ? '● Active' : 'Inactive'}</span><span>LIVE {status.obs.streaming ? '● Active' : 'Inactive'}</span></div>}
-        <p className="muted-text">Connection details are stored locally and included in workspace exports.</p>
-      </section>
-      <section className="settings-card">
-        <div className="settings-title"><span className="action-icon amber"><Icon name="Puzzle" /></span><div><h3>Plugins</h3><p>More possibilities for your workflow.</p></div><span className="badge">{plugins.length} installed</span></div>
-        {plugins.map(p => <div className="plugin-row" key={p.id}><Icon name="Package" size={20} /><div><strong>{p.name}</strong><small>{p.description || p.id}</small></div><Icon name="CheckCircle2" size={16} /></div>)}
-        <div className="tool-row"><Button icon="FolderOpen" onClick={() => perform(() => api.openPlugins())}>Plugin folder</Button><Tool icon="RefreshCw" title="Reload plugins" onClick={() => perform(refreshPlugins, 'Plugins refreshed')} /></div>
-        <p className="muted-text">Add each plugin as a folder containing manifest.json and a JavaScript entry point. Plugins run in separate processes with your user permissions. Install trusted code. See docs/PLUGINS.md in the project for instructions.</p>
       </section>
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Settings2" /></span><div><h3>Your app</h3><p>Your setup stays with you.</p></div></div>

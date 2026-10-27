@@ -21,7 +21,41 @@ The host (`electron/native-plugins.js`) discovers only this bundled directory. I
 }
 ```
 
-Native action contracts/defaults live in `plugins/native/catalog.js`, so validation retains known actions on unsupported systems. The core runner dispatches through the host; it contains no native CLI or OS-specific fallbacks. Renderer contributions are explicitly registered at build time in `plugins/native/ui.jsx`; no renderer code is evaluated from user files.
+Native action contracts/defaults live in `plugins/native/catalog.js`, so validation retains known actions on unsupported systems. The core runner dispatches through the host; it contains no native CLI or OS-specific fallbacks. Renderer contributions are discovered from bundled manifests and UI modules at build time; no renderer code is evaluated from user files.
+
+## Manifest-driven plugin UI
+
+Each integration lives in `plugins/native/<id>/`. The main process automatically discovers its `manifest.json`; Vite discovers `*/manifest.json` and `*/ui.jsx` for the renderer. There is no central list of plugin IDs or component imports to maintain.
+
+Add UI metadata and a guide to the manifest, for example:
+
+```json
+{
+  "ui": {
+    "icon": "Mic",
+    "settings": ["AudioSettings", "SoundSettings"],
+    "editors": { "audio": "AudioEditor" }
+  },
+  "guide": {
+    "title": "Set up this integration",
+    "intro": "What it does, supported platforms, and optional prerequisites.",
+    "steps": [
+      {
+        "title": "Install dependencies",
+        "text": "Explain what is required and what is optional.",
+        "commands": ["example-command --version"]
+      },
+      { "title": "Test and troubleshoot", "text": "Explain the expected result and recovery steps." }
+    ]
+  }
+}
+```
+
+`ui.settings` selects named React exports from that plugin's `ui.jsx`, in display order; `ui.editors` maps action types to named exports from the same file. Missing exports fail registry creation explicitly. Omit `ui` for a headless plugin. The icon uses the app's icon names. Guide text is rendered as plain text, not HTML; commands are shown for the user to run, never executed automatically. Guides are visible even when disabled or unsupported so users can read prerequisites before enabling.
+
+Names, descriptions, platforms, optional/required status, icons, guide content, and UI component selection are maintained in JSON. New behavior still needs its implementation in `index.js` and, when needed, React exports in `ui.jsx`; JSON is not executable plugin code. Rebuild after changing bundled renderer modules or manifests, and restart after changing enablement. Introducing a new action contract still requires adding it to `catalog.js` for portable validation/defaults.
+
+The combined **Linux Audio** plugin demonstrates multiple settings panels and a full setup guide in one manifest. It owns both `audio` and `soundRouting` services. Shared Soundboard remains a separate, cross-platform player; its advanced Linux routes depend on Linux Audio being enabled. Mixer controls remain available when optional routing tools are missing.
 
 The bundled keyboard and shared sound plugins use standard NPM backends by default (`@jitsi/robotjs`, `node-web-audio-api`). Their addons live in persistent **child processes**, through `plugins/native/worker-client.js`, with typed requests, deadlines and cleanup. This is separate from user worker plugins, which execute individual actions. OS fallbacks and advanced Linux routing remain inside their owning native packages. No native addon is imported by the renderer.
 

@@ -19,7 +19,7 @@ let bootReady = false, showRequested = false, creatingWindow, saveRequest, notif
 let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
-const getStatus = () => ({ ...native?.snapshot(), device: devices?.info, available: devices?.available || [], obs: actions?.obsState, running: [...(actions?.running.keys() || [])], folderPath });
+const getStatus = () => ({ ...native?.snapshot(), device: devices?.info, available: devices?.available || [], running: [...(actions?.running.keys() || [])], folderPath });
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
@@ -114,7 +114,7 @@ else {
     await native.initialize();
     autoProfiles = new AutoProfiles(() => state, id => navigate({ profileId: id, automatic: true }), e => log('error', 'Automatic profile', e.message));
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
-    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => native.renderKey(slot.key)), getBrightness: () => state.settings.brightness, isActive: key => native.visual(key)?.active ?? isKeyActive(key, actions?.obsState), getSettings: () => state.settings,
+    devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => native.renderKey(slot.key)), getBrightness: () => state.settings.brightness, isActive: key => native.visual(key)?.active ?? isKeyActive(key, native.snapshot().obs), getSettings: () => state.settings,
       onDown: index => {
         if (quitting) return;
         if (pressed.has(index)) return;
@@ -148,7 +148,6 @@ else {
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
       ...native.legacyHandlers(),
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); },
-      connectOBS: () => actions.connectOBS(), disconnectOBS: () => actions.obs.disconnect(),
       pickFile: async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'] }); return result.canceled ? null : result.filePaths[0]; },
       pickImage: async () => { const r = await dialog.showOpenDialog(win, { filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }], properties: ['openFile'] }); if (r.canceled) return null; const sharp = (await import('sharp')).default; const buffer = await sharp(r.filePaths[0], { limitInputPixels: 20000000 }).resize(256, 256, { fit: 'cover' }).png().toBuffer(); return 'data:image/png;base64,' + buffer.toString('base64'); },
       exportWorkspace: async () => { const r = await dialog.showSaveDialog(win, { defaultPath: 'MacroMaxx-Workspace.json', filters: [{ name: 'MacroMaxx Workspace', extensions: ['json'] }] }); if (r.canceled) return false; await fs.writeFile(r.filePath, JSON.stringify(state, null, 2), { mode: 0o600 }); return true; },

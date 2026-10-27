@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Soundboard, parseModules } from '../plugins/native/linux-soundboard/service.js';
-import { soundVisual } from '../plugins/native/linux-soundboard/index.js';
+import { Soundboard, parseModules } from '../plugins/native/linux-audio/routing-service.js';
+import { soundVisual } from '../plugins/native/linux-audio/routing.js';
 import { isKeyActive } from '../shared/visuals.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';

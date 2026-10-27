@@ -11,6 +11,7 @@ import { parseKeys } from '../plugins/native/keyboard/service.js';
 import { Plugins } from '../electron/plugins.js';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { create as createOBS } from '../plugins/native/obs/index.js';
 
 test('Workspace round-trip preserves nested folders, icons and long press actions', () => {
   const state = initialState(); const folder = state.profiles[0].keys[4];
@@ -107,11 +108,12 @@ test('OBS connects, requests studio state, executes actions and reflects live ev
     });
   });
   const state = initialState(); state.settings.obsUrl = `ws://127.0.0.1:${server.address().port}`;
-  const { actions } = engine({ getState: () => state });
-  t.after(async () => { await actions.obs.disconnect(); socket?.terminate(); await new Promise(resolve => server.close(resolve)); });
-  await actions.connectOBS(); assert.equal(actions.obsState.connected, true); assert.deepEqual(actions.obsState.scenes, ['Desktop', 'Kamera']);
+  const plugin = await createOBS({ getState: () => state, changed: () => {} });
+  const { actions } = engine({ native: { handles: type => type === 'obs', execute: action => plugin.actions.obs(action) } });
+  t.after(async () => { await plugin.close(); socket?.terminate(); await new Promise(resolve => server.close(resolve)); });
+  await plugin.operations.connect(); assert.equal(plugin.status().obs.connected, true); assert.deepEqual(plugin.status().obs.scenes, ['Desktop', 'Kamera']);
   await actions.run({ type: 'obs', command: 'scene', scene: 'Kamera' });
-  await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(actions.obsState.scene, 'Kamera');
+  await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(plugin.status().obs.scene, 'Kamera');
   await actions.run({ type: 'obs', command: 'mute', input: 'Mic/Aux' });
   assert.ok(requests.some(([type, data]) => type === 'ToggleInputMute' && data.inputName === 'Mic/Aux'));
 });

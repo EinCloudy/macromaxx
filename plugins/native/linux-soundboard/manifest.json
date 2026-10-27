@@ -1,6 +1,0 @@
-{
-  "id": "linux-soundboard", "type": "bundled-native", "apiVersion": 1, "name": "Linux Audio Routing",
-  "description": "ffmpeg/PipeWire sound playback and optional virtual microphone routing. Requires ffmpeg/pw-play; routing also requires pactl.",
-  "platforms": ["linux"], "order": 70, "main": "index.js",
-  "actions": {}, "legacyOperations": { "setupSoundboard": "setup", "removeSoundboard": "remove" }
-}

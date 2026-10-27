@@ -1,0 +1,20 @@
+{
+  "id": "obs", "type": "bundled-native", "apiVersion": 1,
+  "name": "OBS Studio",
+  "description": "Control scenes, recording, streaming, and audio mute through OBS WebSocket on Linux, Windows, and macOS. Requires OBS 28+ with its WebSocket server enabled.",
+  "platforms": ["linux", "win32", "darwin"], "order": 90, "main": "index.js",
+  "actions": { "obs": "obs.control" },
+  "legacyOperations": { "connectOBS": "connect", "disconnectOBS": "disconnect" },
+  "ui": { "icon": "Video", "settings": ["OBSSettings"], "editors": { "obs": "OBSEditor" } },
+  "guide": {
+    "title": "Connect OBS Studio",
+    "intro": "The same WebSocket integration works on Linux, Windows, and macOS. OBS must be running; no OS-specific input permissions are needed.",
+    "steps": [
+      { "title": "Enable the plugin", "text": "Enable OBS Studio here and restart MacroMaxx if requested. Saved OBS keys and connection settings are preserved when you disable the plugin." },
+      { "title": "Enable OBS WebSocket", "text": "In OBS 28 or newer, open Tools → WebSocket Server Settings. Enable the server and copy the port and password. Keep authentication enabled when exposing the server to a network." },
+      { "title": "Connect MacroMaxx", "text": "Enter the WebSocket address and password below. For OBS on this computer, the usual address is ws://127.0.0.1:4455. Click Connect to OBS. You connect manually after starting MacroMaxx." },
+      { "title": "Assign and test a key", "text": "Add OBS Studio in Deck Editor. Choose a scene, recording, streaming, or mute action. Connected scene names and audio sources appear in the editor; key highlights follow OBS live state." },
+      { "title": "Troubleshoot", "text": "If connection fails, check that OBS is running, the server is enabled, the address and port match, and the password is correct. For remote OBS, check firewall access. Disconnect and reconnect to refresh the scene and source lists. Connection settings are included in workspace exports; do not share exports containing private passwords." }
+    ]
+  }
+}

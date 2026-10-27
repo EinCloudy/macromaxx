@@ -1,6 +1,6 @@
-import { Soundboard } from './service.js';
+import { Soundboard } from './routing-service.js';
 export async function create(ctx) {
-  const soundboard = new Soundboard(ctx.changed, ctx.report); await soundboard.probe();
+  const soundboard = ctx.routingFactory ? ctx.routingFactory() : new Soundboard(ctx.changed, ctx.report); await soundboard.probe();
   const refreshAudio = () => ctx.service('audio')?.refresh();
   return {
     services: { soundRouting: soundboard },
