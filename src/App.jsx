@@ -11,6 +11,7 @@ import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT
 import { NativeActionEditor, BuiltInSettings } from '../plugins/native/ui.jsx';
 import { Plugins } from './plugins.jsx';
 import { AutoProfileSettings } from './auto-profile-settings.jsx';
+import { Diagnostics } from './diagnostics.jsx';
 import { actionLibrary, libraryAction, libraryKey } from '../shared/action-library.js';
 
 const colors = ['#ad92ff', '#82c8ff', '#86dfb5', '#ffce83', '#fb9eb5', '#ffffff', '#72d9db', '#ff8e74'];
@@ -105,6 +106,7 @@ export default function App() {
       <button className={`nav-item ${page === 'editor' ? 'selected' : ''}`} onClick={() => setPage('editor')}><Icon name="LayoutGrid" size={18} />Deck Editor<kbd>{count}</kbd></button>
       <button className={`nav-item ${page === 'activity' ? 'selected' : ''}`} onClick={() => setPage('activity')}><Icon name="Activity" size={18} />Activity{logs.some(l => l.level === 'error') && <span className="nav-dot" />}</button>
       <button className={`nav-item ${page === 'plugins' ? 'selected' : ''}`} onClick={() => setPage('plugins')}><Icon name="Puzzle" size={18} />Plugins</button>
+      <button className={`nav-item ${page === 'diagnostics' ? 'selected' : ''}`} onClick={() => setPage('diagnostics')}><Icon name="CircleHelp" size={18} />Diagnostics</button>
       <div className="nav-label profiles-label">Profiles<Tool icon="Plus" title="Add profile" onClick={() => { setDraftName(''); setModal('newProfile'); }} /></div>
       <div className="profile-list">{state.profiles.map((p, i) => <button key={p.id} className={`profile-item ${p.id === state.activeProfileId ? 'selected' : ''}`} onClick={() => { navigate({ profileId: p.id }); setPage('editor'); }}><span className="profile-icon" style={{ color: colors[i % colors.length] }}><Icon name={p.icon || 'Layers'} size={16} /></span><span>{p.name}</span>{p.id === state.activeProfileId && <span className="tiny-dot" />}</button>)}</div>
       <div className="sidebar-bottom">
@@ -114,7 +116,7 @@ export default function App() {
       </div>
     </aside>
     <main className="main">
-      <header className="topbar"><div className="breadcrumb">MacroMaxx<Icon name="ChevronRight" size={14} /><span>{page === 'editor' ? 'Deck Editor' : page === 'activity' ? 'Activity' : page === 'plugins' ? 'Plugins' : 'Settings'}</span></div><div className="topbar-actions"><span role="status" className={`save-status ${saveState === 'Save failed' ? 'error' : ''}`}><Icon name={saveState === 'Saved' ? 'Check' : saveState === 'Save failed' ? 'CircleAlert' : 'Loader'} size={15} />{saveState}</span><span className="separator" /><Tool icon="CircleHelp" title="Quick guide" onClick={() => setModal('help')} /></div></header>
+      <header className="topbar"><div className="breadcrumb">MacroMaxx<Icon name="ChevronRight" size={14} /><span>{page === 'editor' ? 'Deck Editor' : page === 'activity' ? 'Activity' : page === 'plugins' ? 'Plugins' : page === 'diagnostics' ? 'Diagnostics' : 'Settings'}</span></div><div className="topbar-actions"><span role="status" className={`save-status ${saveState === 'Save failed' ? 'error' : ''}`}><Icon name={saveState === 'Saved' ? 'Check' : saveState === 'Save failed' ? 'CircleAlert' : 'Loader'} size={15} />{saveState}</span><span className="separator" /><Tool icon="CircleHelp" title="Quick guide" onClick={() => setModal('help')} /></div></header>
       {page === 'editor' ? <>
         <section className="page-heading"><div><h1>Deck Editor</h1><p>Assign actions and arrange your keys.</p></div><Button icon="Download" onClick={() => perform(async () => { await flush(); return api.exportWorkspace(); })}>Export</Button></section>
         <div className="editor-layout"><section className="deck-panel">
@@ -167,7 +169,7 @@ export default function App() {
       </> : page === 'activity' ? <>
         <section className="page-heading"><div><h1>Activity</h1><p>Action results and errors.</p></div><Button icon="Square" onClick={() => perform(() => api.cancel(), 'Action chains canceled')}>Stop all</Button></section>
         <section className="activity-panel"><div className="panel-top"><strong>Activity log</strong><Button className="small" icon="Trash2" onClick={() => setLogs([])}>Clear</Button></div>{logs.length ? logs.map(item => <div className={`log-row ${item.level}`} key={item.id}><span className="log-icon"><Icon name={item.level === 'error' ? 'CircleAlert' : item.level === 'success' ? 'Check' : 'Info'} size={18} /></span><div><strong>{item.title}</strong><p>{item.message}</p></div><time>{new Date(item.time).toLocaleTimeString('en-GB')}</time></div>) : <div className="large-empty"><Icon name="Activity" size={32} /><h3>No activity yet</h3><p>Run a key to see its result here.</p></div>}</section>
-      </> : page === 'plugins' ? <Plugins state={state} status={status} plugins={plugins} change={change} perform={perform} flush={flush} refreshPlugins={() => api.plugins().then(setPlugins)} /> : <Settings state={state} status={status} change={change} perform={perform} flush={flush} />}
+      </> : page === 'diagnostics' ? <Diagnostics status={status} perform={perform} openSettings={() => setPage('settings')} openPlugins={() => setPage('plugins')} /> : page === 'plugins' ? <Plugins state={state} status={status} plugins={plugins} change={change} perform={perform} flush={flush} refreshPlugins={() => api.plugins().then(setPlugins)} /> : <Settings state={state} status={status} change={change} perform={perform} flush={flush} />}
     </main>
     {toast && <div role="status" className={`toast ${toast.error ? 'error' : ''}`}><Icon name={toast.error ? 'CircleAlert' : 'CheckCircle2'} size={19} /><span>{toast.message}</span><Tool icon="X" title="Close" onClick={() => setToast(null)} /></div>}
     {modal && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setModal(null); }}><div className="modal" role="dialog" aria-modal="true">

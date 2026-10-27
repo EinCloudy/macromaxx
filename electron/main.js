@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Tray, Menu, nativeImage, powerMonitor, globalShortcut, Notification, systemPreferences } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Store } from './store.js';
 import { Devices } from './devices.js';
@@ -11,6 +12,7 @@ import { NativePlugins, prepareNativePlugins } from './native-plugins.js';
 import { validateState } from '../shared/model.js';
 import { isKeyActive } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
+import { createDiagnosticReport } from '../shared/diagnostics.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dev = process.argv.includes('--dev');
 const nativeDirectory = path.join(here, '../plugins/native');
@@ -20,6 +22,17 @@ let logs = [], pressed = new Map();
 const emit = event => { if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('app:event', event); };
 const status = () => emit({ type: 'status', status: getStatus() });
 const getStatus = () => ({ ...native?.snapshot(), device: devices?.info, available: devices?.available || [], running: [...(actions?.running.keys() || [])], folderPath });
+async function diagnosticSnapshot() {
+  let keyboardCheckFailed = false;
+  if (native.snapshot().native.plugins.some(plugin => plugin.id === 'keyboard' && plugin.state === 'loaded')) {
+    try { await native.invoke('keyboard', 'diagnostics'); } catch { keyboardCheckFailed = true; }
+  }
+  native.changed();
+  return {
+    runtime: { app: app.getVersion(), electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome, platform: process.platform, arch: process.arch, osRelease: os.release(), session: process.platform === 'linux' ? process.env.WAYLAND_DISPLAY ? 'Wayland' : process.env.DISPLAY ? 'X11' : 'Unknown' : 'Native desktop' },
+    status: getStatus(), keyboardCheckFailed,
+  };
+}
 const log = (level, title, message) => { const item = { id: crypto.randomUUID(), time: Date.now(), level, title, message }; logs = [item, ...logs].slice(0, 200); emit({ type: 'log', item }); };
 const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
@@ -147,6 +160,14 @@ else {
       execute: (_, index, long) => execute(index, long), navigate: (_, target) => navigate(target),
       images: (_, images) => { if (!Array.isArray(images) || images.length > 10002 || images.some(i => !i || typeof i.signature !== 'string' || i.signature.length > 1000000 || typeof i.image !== 'string' || i.image.length > 2000000 || !/^data:image\/png;base64,/.test(i.image))) throw new Error('Invalid images.'); return devices.setImages(images); },
       ...native.legacyHandlers(),
+      diagnosticSnapshot: () => diagnosticSnapshot(),
+      exportDiagnostics: async () => {
+        const result = await dialog.showSaveDialog(win, { defaultPath: 'MacroMaxx-Diagnostics.json', filters: [{ name: 'MacroMaxx Diagnostics', extensions: ['json'] }] });
+        if (result.canceled) return false;
+        const report = createDiagnosticReport(await diagnosticSnapshot());
+        await fs.writeFile(result.filePath, JSON.stringify(report, null, 2), { mode: 0o600 });
+        return true;
+      },
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); },
       pickFile: async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'] }); return result.canceled ? null : result.filePaths[0]; },
       pickImage: async () => { const r = await dialog.showOpenDialog(win, { filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }], properties: ['openFile'] }); if (r.canceled) return null; const sharp = (await import('sharp')).default; const buffer = await sharp(r.filePaths[0], { limitInputPixels: 20000000 }).resize(256, 256, { fit: 'cover' }).png().toBuffer(); return 'data:image/png;base64,' + buffer.toString('base64'); },

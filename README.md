@@ -135,6 +135,12 @@ Grant Accessibility access to MacroMaxx or your development environment. Key com
 
 ## Data and export
 
+### Diagnostics
+
+Open **Diagnostics** in the sidebar for live deck/OBS connections, native provider states, missing capabilities and setup/permission hints. **Refresh checks** rechecks keyboard dependencies without requesting permissions or changing system settings; other providers display their current detected state. Use Settings or Plugins for provider-specific setup and detection. Reconnect the deck directly from Diagnostics if needed.
+
+**Export report** saves a local JSON file with app/runtime and OS versions, session type, deck dimensions, connection states and native provider/capability states. It deliberately excludes credentials, URLs, personal paths, serial numbers, workspace content, activity logs and raw errors. Nothing is uploaded. Review the report before sharing it. Export is available only in the desktop app.
+
 `workspace.json` is stored in Electron's user-data directory (usually `~/.config/MacroMaxx/` or `~/.config/macromaxx/` on Linux, depending on the app name). The previous valid version is kept beside it as `workspace.json.bak`. Writes are serialized through a temporary file; a damaged primary file is recovered from the backup. Activity logs stay in memory.
 
 Import/export is available in Settings. Importing replaces the workspace after confirmation. Images are embedded. OBS passwords and webhook credentials are stored locally and **are also included in export files**.

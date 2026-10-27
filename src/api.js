@@ -6,6 +6,8 @@ export const api = window.macro || {
   save: async state => localStorage.setItem('macromaxx', JSON.stringify(state)),
   subscribe: () => () => {}, images: async () => {}, plugins: async () => [{ id: 'hello', name: 'Hello, MacroMaxx!', fields: [{ key: 'name', label: 'Your name', default: 'World' }] }],
   diagnostics: async () => ({ platform: 'browser', backend: 'Browser preview', wayland: false }),
+  diagnosticSnapshot: async () => ({ runtime: { platform: 'browser', session: 'Browser preview' }, status: {} }),
+  exportDiagnostics: unavailable,
   refreshAudio: unavailable,
   reconnect: unavailable,
   forgetInput: unavailable,
