@@ -31,3 +31,11 @@ test('Technical plugins without actions stay out of the plugin library', () => {
   const items = pluginLibrary([], [native(), native({ id: 'backend', required: true, actions: [] }), native({ id: 'service', actions: undefined })], {});
   assert.deepEqual(items.map(item => item.id), ['media']);
 });
+
+test('Built-in keyboard, applications and media are hidden without hiding user plugins', () => {
+  const items = pluginLibrary([{ id: 'media', name: 'User media' }], [
+    ...['keyboard', 'launcher', 'media'].map(id => native({ id, builtIn: true, required: true })),
+    native({ id: 'obs' }),
+  ], {});
+  assert.deepEqual(items.map(item => item.key), ['native:obs', 'user:media']);
+});

@@ -50,8 +50,15 @@ test('Windows and macOS never import Linux-only native plugins', async () => {
 });
 
 test('Optional disabled plugins do not load; required adapters remain available', async () => {
-  const f = fixture('linux', ['linux-audio', 'media', 'keyboard']); await f.host.initialize();
-  assert.equal(f.loaded.includes('linux-audio'), false); assert.equal(f.loaded.includes('media'), false); assert.equal(f.loaded.includes('keyboard'), true);
+  const f = fixture('linux', ['linux-audio', 'media', 'keyboard', 'launcher']); await f.host.initialize();
+  assert.equal(f.loaded.includes('linux-audio'), false);
+  for (const id of ['media', 'keyboard', 'launcher']) {
+    assert.equal(f.loaded.includes(id), true);
+    const plugin = f.host.snapshot().native.plugins.find(plugin => plugin.id === id);
+    assert.equal(plugin.builtIn, true);
+    assert.equal(plugin.enabled, true);
+    assert.equal(plugin.restartRequired, false);
+  }
   assert.equal(f.host.availability({ type: 'audio' }).available, false);
   const profile = f.state.profiles[0]; profile.keys[5] = makeKey('audio');
   assert.doesNotThrow(() => validateState(f.state));

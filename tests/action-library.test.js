@@ -3,15 +3,23 @@ import assert from 'node:assert/strict';
 import { actionLibrary, libraryAction, libraryKey } from '../shared/action-library.js';
 import { initialState, validateState } from '../shared/model.js';
 
-test('Native actions are grouped by their actual provider, not by core categories', () => {
+test('Built-in actions use functional categories independently of their native provider', () => {
   const library = actionLibrary([], { native: { plugins: [{ id: 'adapter', name: 'Keyboard adapter' }, { id: 'backend', name: 'Hidden backend', actions: [] }], actionTypes: { hotkey: { provider: 'adapter', available: false, reason: 'Permission missing', defaults: { keys: 'ALT+A' } } } } });
   const hotkey = library.find(item => item.key === 'hotkey');
-  assert.equal(hotkey.group, 'Plugin · Keyboard adapter');
+  assert.equal(hotkey.group, 'Keyboard & text');
   assert.equal(hotkey.availability.available, false);
   assert.equal(hotkey.defaults.keys, 'ALT+A');
-  assert.equal(library.find(item => item.key === 'url').group, 'System');
+  assert.equal(library.find(item => item.key === 'url').group, 'Connections');
+  assert.equal(library.find(item => item.key === 'text').group, hotkey.group);
+  for (const type of ['media', 'audio', 'sound']) assert.equal(library.find(item => item.key === type).group, 'Media & audio');
+  assert.deepEqual([...new Set(library.map(item => item.group))], ['Keyboard & text', 'Media & audio', 'Apps & system', 'Connections', 'Organization', 'Workflows']);
   assert.ok(!library.some(item => item.group.includes('Hidden backend')));
   assert.ok(!library.some(item => item.key === 'plugin'));
+});
+
+test('Functional categories include every built-in action exactly once', async () => {
+  const { catalog } = await import('../shared/model.js');
+  assert.deepEqual(actionLibrary([]).map(item => item.type).sort(), catalog.filter(item => item.type !== 'plugin').map(item => item.type).sort());
 });
 
 test('Each user plugin has its own assignable entry, with defaults and portable saved actions', () => {

@@ -8,6 +8,7 @@ export function buildNativeUIRegistry(manifests, modules) {
       return module[name];
     };
     return [manifest.id, {
+      builtIn: !!manifest.builtIn,
       settings: (manifest.ui?.settings || []).map(resolve),
       editors: Object.fromEntries(Object.entries(manifest.ui?.editors || {}).map(([type, name]) => [type, resolve(name)])),
     }];

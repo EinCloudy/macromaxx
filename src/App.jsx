@@ -8,7 +8,7 @@ import { animationEnabled } from '../shared/animation-settings.js';
 import { deckSlots, swapDeckSlots } from '../shared/deck-layout.js';
 import { KeyArtwork } from './key-artwork.jsx';
 import { keyFontSize, globalFontSize, MIN_FONT_SIZE, MAX_FONT_SIZE, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
-import { NativeActionEditor } from '../plugins/native/ui.jsx';
+import { NativeActionEditor, BuiltInSettings } from '../plugins/native/ui.jsx';
 import { Plugins } from './plugins.jsx';
 import { AutoProfileSettings } from './auto-profile-settings.jsx';
 import { actionLibrary, libraryAction, libraryKey } from '../shared/action-library.js';
@@ -187,7 +187,7 @@ export default function App() {
         <Button className="full danger" icon="Trash2" disabled={state.profiles.length < 2} onClick={() => { change(s => { s.profiles = s.profiles.filter(p => p.id !== profile.id); s.activeProfileId = s.profiles[0].id; }); setPath([]); setModal(null); }}>Delete profile</Button>
       </> : <>
         <div className="modal-symbol"><Icon name="Sparkles" size={28} /></div><h2>Your workflow starts here.</h2>
-        <p>1. Drag an action from the library onto a key.<br /><br />2. Use Properties to customize its label, icon, and action.<br /><br />3. Click Test or press the physical key.<br /><br />Double-click to open folders. Add multiple actions to a key to build a chain. Trigger a running chain again to stop it.<br /><br />Open Plugins to connect OBS, manage extensions, and set up keyboard input and USB access. Open Settings to customize the app.</p><Button className="primary full" onClick={() => setModal(null)}>Let's go</Button>
+        <p>1. Drag an action from the library onto a key.<br /><br />2. Use Properties to customize its label, icon, and action.<br /><br />3. Click Test or press the physical key.<br /><br />Double-click to open folders. Add multiple actions to a key to build a chain. Trigger a running chain again to stop it.<br /><br />Open Plugins to connect OBS and manage extensions. Open Settings to set up keyboard input, USB access, media controls, and customize the app.</p><Button className="primary full" onClick={() => setModal(null)}>Let's go</Button>
       </>}
     </div></div>}
   </div>;
@@ -248,12 +248,13 @@ function Settings({ state, status, change, perform, flush }) {
     <div className="settings-grid">
       <AnimationSettings state={state} change={change} />
       <TypographySettings state={state} change={change} />
+      <BuiltInSettings state={state} status={status} change={change} perform={perform} flush={flush} />
       <AutoProfileSettings state={state} status={status} change={change} />
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Usb" /></span><div><h3>Stream Deck</h3><p>{status.device?.name || 'Virtual device'}</p></div></div>
         {status.device?.error && <div className="notice error"><Icon name="CircleAlert" size={17} />{status.device.error}</div>}
         <Button icon="RefreshCw" disabled={!!busy} onClick={() => task('reconnect', () => api.reconnect(), 'Device scan refreshed')}>Reconnect Stream Deck</Button>
-        <p className="muted-text">Hardware discovery, image rendering, brightness, and reconnects use the cross-platform device library. OS permission setup belongs to the native keyboard plugin.</p>
+        <p className="muted-text">Hardware discovery, image rendering, brightness, and reconnects use the cross-platform device library. Keyboard and USB permissions can be configured in the Keyboard & text settings.</p>
       </section>
       <section className="settings-card">
         <div className="settings-title"><span className="action-icon"><Icon name="Settings2" /></span><div><h3>Your app</h3><p>Your setup stays with you.</p></div></div>

@@ -1,7 +1,7 @@
 {
   "id": "launcher", "type": "bundled-native", "apiVersion": 1, "name": "Native Applications & Scripts",
   "description": "Native executable/file launching on all three OSes; desktop-entry search and Flatpak on Linux, POSIX scripts on Linux/macOS.",
-  "platforms": ["linux", "win32", "darwin"], "order": 30, "required": true, "main": "index.js",
+  "platforms": ["linux", "win32", "darwin"], "order": 30, "required": true, "builtIn": true, "main": "index.js",
   "actions": { "app": "launcher.open", "script": "launcher.script" }, "legacyOperations": { "refreshApplications": "refresh" },
   "ui": { "icon": "AppWindow", "editors": { "app": "LauncherEditor", "script": "ScriptEditor" } }
 }

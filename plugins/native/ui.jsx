@@ -23,3 +23,8 @@ export function NativePluginSettings({ plugin, ...props }) {
   if (plugin.state !== 'loaded') return <p className="muted-text">Settings are available when this plugin is loaded on a supported platform.</p>;
   return panels.length ? panels.map((Settings, index) => <Settings key={index} {...props} />) : <p className="muted-text">This plugin does not need any additional settings. Configure its actions in the Deck Editor.</p>;
 }
+
+export function BuiltInSettings(props) {
+  return Object.entries(registry).filter(([, item]) => item.builtIn).flatMap(([id, item]) =>
+    item.settings.map((Settings, index) => <Settings key={`${id}:${index}`} {...props} />));
+}
