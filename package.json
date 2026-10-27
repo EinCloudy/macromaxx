@@ -16,6 +16,7 @@
     "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"shared/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"shared/**/*.js\"",
     "verify:native": "node scripts/verify-native.js",
+    "release:check": "node scripts/release.js check",
     "pack": "npm run build && npm run verify:native && electron-builder --dir",
     "dist": "npm run build && npm run verify:native && electron-builder"
   },
@@ -60,6 +61,7 @@
       "node_modules/@img/**/*"
     ],
     "linux": {
+      "artifactName": "MacroMaxx-${version}-linux-${arch}.${ext}",
       "icon": "build/icon.png",
       "target": [
         "AppImage"
@@ -68,9 +70,11 @@
       "category": "Utility"
     },
     "win": {
+      "artifactName": "MacroMaxx-${version}-windows-${arch}.${ext}",
       "target": "nsis"
     },
     "mac": {
+      "artifactName": "MacroMaxx-${version}-macos-${arch}.${ext}",
       "target": "dmg",
       "category": "public.app-category.utilities"
     }

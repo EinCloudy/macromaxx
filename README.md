@@ -34,6 +34,10 @@ npm run verify:native # Verify installed Node-API modules with Electron
 
 Linux: AppImage. Windows: NSIS. macOS: dmg. Build on the corresponding operating system for each platform. Code signing and notarization are not configured.
 
+Tagged releases are built by GitHub Actions as unsigned **draft releases** for
+Linux x64, Windows x64 and macOS Apple Silicon. See [Releasing](docs/RELEASING.md)
+for the v0.1.0 checklist, manual approval and current distribution limitations.
+
 For development boundaries, folder responsibilities and checks, see [Code structure](docs/CODE_STRUCTURE.md).
 
 ## Using the app

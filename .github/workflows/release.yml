@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.ref_name }}
+
+jobs:
+  checks:
+    name: Validate release and run checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run release:check
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+  installers:
+    name: Installer (${{ matrix.platform }}-${{ matrix.arch }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+            artifact-arch: x86_64
+            target: AppImage
+          - os: windows-2022
+            platform: windows
+            arch: x64
+            artifact-arch: x64
+            target: exe
+          - os: macos-14
+            platform: macos
+            arch: arm64
+            artifact-arch: arm64
+            target: dmg
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Linux native build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libudev-dev libusb-1.0-0-dev libx11-dev libxtst-dev libpng-dev libasound2-dev libjack-jackd2-dev libnss3 libatk-bridge2.0-0 libgtk-3-0
+      - run: npm ci
+      - name: Build installer and verify native modules
+        run: npm run dist -- --${{ matrix.arch }} --publish never
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release/MacroMaxx-*-${{ matrix.platform }}-${{ matrix.artifact-arch }}.${{ matrix.target }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  draft:
+    name: Create release draft
+    needs: installers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: release-assets
+          merge-multiple: true
+      - name: Validate installers and generate checksums and release notes
+        run: node scripts/release.js assets
+      - name: Create draft (never overwrite an existing release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft --title "MacroMaxx $RELEASE_TAG" --notes-file release-notes.md

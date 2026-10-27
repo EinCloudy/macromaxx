@@ -54,3 +54,22 @@ npm run build        # Production renderer build
 `tests/workspace-editor.test.js` covers save ordering/debounce/recovery, immutable
 undo/redo and recursive profile duplication. Browser preview can verify editor
 interactions; USB, native permissions and real hardware require the desktop app.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on branch pushes, pull requests and manual dispatches,
+using Node.js 22 and the committed lockfile (`npm ci`). The Linux checks job runs
+formatting, the test suite and the renderer build. After it succeeds, Linux,
+Windows and macOS jobs run `npm run pack -- --publish never`, including Electron
+native-module verification. These jobs build unpacked apps without signing or
+publishing; they do not create release installers or test real hardware.
+
+The full test suite currently runs on Linux because some tests exercise POSIX
+shell scripts and Linux desktop behavior. The desktop matrix checks packaging,
+not equivalent runtime functionality on every OS. Optional native backends may
+report warnings in headless CI; critical native-module failures fail the job.
+The two opt-in audio integration tests remain skipped in the default test run.
+
+Tag-triggered installer builds and draft GitHub Releases are handled separately
+by `.github/workflows/release.yml`; see [Releasing](RELEASING.md). Release helper
+validation and checksum generation are covered by `tests/release.test.js`.
