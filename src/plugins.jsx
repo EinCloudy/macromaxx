@@ -24,7 +24,7 @@ export function Plugins({ state, status, plugins, change, perform, flush, refres
     try { await perform(refreshPlugins, 'User plugins refreshed'); } finally { setRefreshing(false); }
   };
   return <>
-    <section className="page-heading"><div><div className="eyebrow">MORE POSSIBILITIES. LESS CLUTTER.</div><h1>Your plugins<span>.</span></h1><p>Manage native integrations and your own extensions in one place.</p></div><div className="tool-row"><button className="button" onClick={() => perform(() => api.openPlugins())}><Icon name="FolderOpen" size={16} />Plugin folder</button><button className="button" disabled={refreshing} onClick={refresh}><Icon name="RefreshCw" size={16} />{refreshing ? 'Reloading …' : 'Reload user plugins'}</button></div></section>
+    <section className="page-heading"><div><h1>Plugins</h1><p>Manage integrations and extensions.</p></div><div className="tool-row"><button className="button" onClick={() => perform(() => api.openPlugins())}><Icon name="FolderOpen" size={16} />Plugin folder</button><button className="button" disabled={refreshing} onClick={refresh}><Icon name="RefreshCw" size={16} />{refreshing ? 'Reloading …' : 'Reload user plugins'}</button></div></section>
     {plugin ? <div className="plugin-details">
       <button className="button" onClick={() => setSelected(null)}><Icon name="ArrowLeft" size={16} />All plugins</button>
       <section className="settings-card">
