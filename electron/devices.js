@@ -276,7 +276,7 @@ export class Devices {
 
   setImages(images) {
     this.images = new Map(images.map(({ signature, image }) => [signature, image]));
-    return this.render();
+    return this.render({ interruptTransition: false });
   }
 
   async imageBuffer(control, signature, image) {
@@ -291,8 +291,14 @@ export class Devices {
     return buffer;
   }
 
-  render() {
+  render({ interruptTransition = true } = {}) {
     if (this.info.screensaver) return this.renderQueue;
+    // Live artwork (including off-screen scrolling tiles) must not cancel an
+    // in-flight animation. Apply the latest image bank once it has finished;
+    // explicit navigation and button presses can still interrupt immediately.
+    if (!interruptTransition && this.transitionController) {
+      return this.renderQueue.then(() => this.render({ interruptTransition: false }));
+    }
     const revision = ++this.renderRevision;
     this.transitionController?.abort();
     this.renderQueue = this.renderQueue.catch(() => {}).then(async () => {

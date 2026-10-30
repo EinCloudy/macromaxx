@@ -86,6 +86,40 @@ test('Disabled folder animations write cached icons directly without any transit
   assert.deepEqual(direct.at(-1), colorBuffer(230));
 });
 
+test('Live image updates do not cancel folder transitions, even for tiles in other folders', async () => {
+  for (const visible of [false, true]) {
+    const old = makeKey('folder'), next = makeKey('hotkey');
+    const tile = { ...makeKey('tile'), scrollFrame: 0 };
+    const updatedTile = { ...tile, scrollFrame: 1 };
+    let keys = [old], refresh;
+    const fake = simulatedDeck(), direct = [];
+    const images = [await artwork(old, 60), await artwork(next, 150), await artwork(tile, 180)];
+    const updatedImages = [images[0], images[1], await artwork(updatedTile, 230)];
+    const device = new Devices({
+      getKeys: () => keys, getBrightness: () => 65,
+      onStatus: () => {
+        if (device.info.transitioning && !refresh) {
+          if (visible) keys = [updatedTile];
+          refresh = device.setImages(updatedImages);
+        }
+      },
+    });
+    device.controls = [control(0)];
+    device.deck = { ...fake.deck, setBrightness: async () => {}, fillKeyBuffer: async (_, buffer) => direct.push(buffer) };
+    await device.setImages(images);
+    keys = [visible ? tile : next];
+    await device.navigateTransition();
+    await refresh;
+    assert.ok(fake.writes.length > 1, 'artwork refresh must not interrupt the animation');
+    assert.deepEqual(fake.writes.at(-1).buffer, colorBuffer(visible ? 180 : 150));
+    assert.deepEqual(device.displayed.get(0), colorBuffer(visible ? 230 : 150));
+    assert.equal(device.sent.get(0), visualSignature(keys[0]));
+    assert.equal(device.info.transitioning, null);
+    assert.equal(device.info.error, '');
+    assert.equal(direct.length, visible ? 2 : 1, 'only changed visible artwork needs a follow-up write');
+  }
+});
+
 test('Fast navigation cancels the old transition and leaves only the latest folder artwork', async () => {
   const old = makeKey('folder'), next = makeKey('hotkey'), latest = makeKey('url'); let keys = [old];
   const physical = new Map(); let pending, changed = false;
@@ -101,6 +135,40 @@ test('Fast navigation cancels the old transition and leaves only the latest fold
   };
   await device.setImages([await artwork(old, 60), await artwork(next, 150), await artwork(latest, 230)]);
   keys = [next]; await device.navigateTransition(); await pending;
+  assert.deepEqual(physical.get(0), colorBuffer(230));
+  assert.equal(device.sent.get(0), visualSignature(latest));
+  assert.equal(device.info.transitioning, null);
+  assert.equal(device.info.error, '');
+});
+
+test('Repeated image refreshes preserve transitions without blocking a newer navigation', async () => {
+  const old = makeKey('folder'), next = makeKey('hotkey'), latest = makeKey('url');
+  let keys = [old], navigation;
+  const images = [await artwork(old, 60), await artwork(next, 150), await artwork(latest, 230)];
+  const physical = new Map(), refreshes = [], controllers = [], writes = [];
+  const device = new Devices({
+    getKeys: () => keys, getBrightness: () => 65,
+    onStatus: () => { if (device.info.transitioning) controllers.push(device.transitionController); },
+  });
+  device.controls = [control(0)];
+  device.deck = {
+    setBrightness: async () => {}, prepareFillKeyBuffer: async (index, buffer) => ({ index, buffer }),
+    fillKeyBuffer: async (index, buffer) => physical.set(index, buffer),
+    sendPreparedBuffer: async ({ index, buffer }) => {
+      writes.push(buffer); physical.set(index, buffer);
+      refreshes.push(device.setImages(images));
+      if (!navigation) {
+        keys = [latest]; navigation = device.navigateTransition('out');
+      }
+    },
+  };
+  await device.setImages(images);
+  keys = [next]; await device.navigateTransition();
+  await navigation; await Promise.all(refreshes);
+  assert.equal(controllers.length, 2);
+  assert.equal(controllers[0].signal.aborted, true, 'a new navigation still interrupts immediately');
+  assert.equal(controllers[1].signal.aborted, false, 'deferred image refreshes cannot cancel the newer transition');
+  assert.ok(writes.length > 2, 'the latest folder must animate despite repeated refreshes');
   assert.deepEqual(physical.get(0), colorBuffer(230));
   assert.equal(device.sent.get(0), visualSignature(latest));
   assert.equal(device.info.transitioning, null);
