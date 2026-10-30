@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from '../../icons.jsx';
 import { KeyArtwork } from '../../key-artwork.jsx';
 import { isKeyActive, liveKey } from '../../../shared/visuals.js';
+import { createDragHover } from './drag-hover.js';
 
 export function DeckGrid({
   slots,
@@ -11,10 +12,27 @@ export function DeckGrid({
   selected,
   pressed,
   defaultSize,
+  pageId,
   onSelect,
   onOpen,
   onDrop,
+  onDragStart,
+  onDragEnd,
+  canHoverOpen,
 }) {
+  const [dragHover] = useState(createDragHover);
+  useEffect(() => {
+    dragHover.cancel();
+    const cancel = () => dragHover.cancel();
+    window.addEventListener('dragend', cancel);
+    window.addEventListener('drop', cancel);
+    return () => {
+      cancel();
+      window.removeEventListener('dragend', cancel);
+      window.removeEventListener('drop', cancel);
+    };
+  }, [dragHover, pageId]);
+
   return (
     <div className="deck-shell" style={{ '--cols': columns, '--rows': rows }}>
       <div className="deck-brand">
@@ -30,9 +48,29 @@ export function DeckGrid({
               key={index}
               className={`deck-key ${selected === index ? 'is-selected' : ''} ${!key ? 'empty' : ''} ${pressed.includes(index) ? 'pressed' : ''} ${active ? 'live' : ''}`}
               draggable={!!key}
-              onDragStart={(event) => event.dataTransfer.setData('key', String(index))}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => onDrop(event, index)}
+              onDragStart={(event) => onDragStart(event, index)}
+              onDragEnd={() => {
+                dragHover.cancel();
+                onDragEnd();
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                const types = Array.from(event.dataTransfer.types);
+                if (
+                  (types.includes('action') || types.includes('key')) &&
+                  (slot.isBack || key?.actions?.[0]?.type === 'folder') &&
+                  canHoverOpen(index)
+                ) {
+                  dragHover.hover(index, () => onOpen(index));
+                } else dragHover.cancel();
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) dragHover.cancel();
+              }}
+              onDrop={(event) => {
+                dragHover.cancel();
+                onDrop(event, index);
+              }}
               onClick={() => onSelect(index)}
               onDoubleClick={() => onOpen(index)}
               title={

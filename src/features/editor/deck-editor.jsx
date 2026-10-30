@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { api, desktop } from '../../api.js';
 import { Icon } from '../../icons.jsx';
 import { Button, Tool } from '../../components/ui.jsx';
 import { Modal } from '../../components/modal.jsx';
 import { visibleKeys, duplicateKey } from '../../../shared/model.js';
-import { deckSlots, swapDeckSlots } from '../../../shared/deck-layout.js';
+import { deckSlots, moveDeckSlot } from '../../../shared/deck-layout.js';
 import { globalFontSize } from '../../../shared/key-text.js';
 import { actionLibrary, libraryKey } from '../../../shared/action-library.js';
 import { ActionLibrary } from './action-library.jsx';
@@ -35,6 +35,7 @@ export function DeckEditor({
   const [tab, setTab] = useState('library');
   const [longMode, setLongMode] = useState(false);
   const [replacement, setReplacement] = useState(null);
+  const dragSource = useRef(null);
   const count = status.device?.count || 15;
   const defaultSize = globalFontSize(state.settings);
   const slots = deckSlots(state, path, count);
@@ -64,12 +65,11 @@ export function DeckEditor({
   function drop(event, index) {
     event.preventDefault();
     const type = event.dataTransfer.getData('action');
-    const source = event.dataTransfer.getData('key');
+    const source = dragSource.current;
+    dragSource.current = null;
     if (type) place(type, index);
-    else if (source !== '') {
-      const from = Number(source);
-      if (!Number.isInteger(from) || from < 0 || from >= count || from === index) return;
-      change((next) => swapDeckSlots(next, path, from, index, count));
+    else if (source && event.dataTransfer.getData('key') !== '') {
+      change((next) => moveDeckSlot(next, source, path, index, count));
       setSelected(index);
     }
   }
@@ -195,6 +195,23 @@ export function DeckEditor({
               selected={selected}
               pressed={pressed}
               defaultSize={defaultSize}
+              pageId={JSON.stringify([state.activeProfileId, path])}
+              onDragStart={(event, index) => {
+                event.dataTransfer.setData('key', String(index));
+                dragSource.current = {
+                  profileId: state.activeProfileId,
+                  path: [...path],
+                  index,
+                  keyId: slots[index].key.id,
+                  isBack: slots[index].isBack,
+                };
+              }}
+              onDragEnd={() => {
+                dragSource.current = null;
+              }}
+              canHoverOpen={(index) =>
+                !dragSource.current?.isBack && dragSource.current?.keyId !== slots[index].key?.id
+              }
               onSelect={(index) => {
                 setSelected(index);
                 setLongMode(false);
@@ -204,7 +221,7 @@ export function DeckEditor({
             />
             <div className="deck-hint">
               <Icon name="MousePointer2" size={14} />
-              <span>Drag actions onto keys. Double-click a key to edit.</span>
+              <span>Drag actions onto keys. Hold over a folder or Back to navigate.</span>
             </div>
           </div>
           <div className="deck-toolbar">

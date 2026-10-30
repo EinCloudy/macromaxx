@@ -40,3 +40,32 @@ export function swapDeckSlots(state, path, from, to, count = 15) {
     [keys[a], keys[b]] = [keys[b], keys[a]];
   }
 }
+
+// A drag keeps its original page even when hover navigation changes the view.
+export function moveDeckSlot(state, source, path, to, count = 15) {
+  if (
+    !source ||
+    source.profileId !== state.activeProfileId ||
+    ![source.index, to].every((index) => Number.isInteger(index) && index >= 0 && index < count)
+  )
+    return false;
+  const fromSlot = deckSlots(state, source.path, count)[source.index];
+  if (!fromSlot.key || fromSlot.key.id !== source.keyId) return false;
+  if (source.path.length === path.length && source.path.every((part, i) => part === path[i])) {
+    swapDeckSlots(state, path, source.index, to, count);
+    return true;
+  }
+  const toSlot = deckSlots(state, path, count)[to];
+  if (fromSlot.isBack || toSlot.isBack) return false;
+  const fromAddress = [...source.path, fromSlot.childIndex];
+  const toAddress = [...path, toSlot.childIndex];
+  const contains = (parent, child) =>
+    parent.length <= child.length && parent.every((part, i) => part === child[i]);
+  // Never move a folder into itself, or swap a child with its own ancestor.
+  if (contains(fromAddress, path) || contains(toAddress, source.path)) return false;
+  const fromKeys = visibleKeys(state, source.path);
+  const toKeys = visibleKeys(state, path);
+  while (toKeys.length <= toSlot.childIndex) toKeys.push(null);
+  [fromKeys[fromSlot.childIndex], toKeys[toSlot.childIndex]] = [toSlot.key, fromSlot.key];
+  return true;
+}
