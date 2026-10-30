@@ -30,6 +30,7 @@ export function liveKey(key, live = {}) {
         ...(typeof patch.image === 'string' ? { image: patch.image } : {}),
         ...(Number.isSafeInteger(patch.scrollFrame) ? { scrollFrame: patch.scrollFrame } : {}),
         ...(['slow', 'normal', 'fast'].includes(patch.scrollSpeed) ? { scrollSpeed: patch.scrollSpeed } : {}),
+        ...(patch.textLayout === 'stacked' ? { textLayout: 'stacked' } : {}),
       }
     : key;
 }
@@ -48,6 +49,7 @@ export function visualSignature(key, active = false) {
           !!active,
           key.scrollFrame ?? null,
           key.scrollSpeed ?? null,
+          key.textLayout ?? null,
         ]
       : null,
   );

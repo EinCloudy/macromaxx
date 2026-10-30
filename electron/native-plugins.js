@@ -117,12 +117,12 @@ export class NativePlugins {
     for (const record of this.records) if (record.state === 'loaded') {
       try {
         const contribution = record.instance.visual?.(key);
-        if (contribution) patch = { ...patch, ...(typeof contribution.active === 'boolean' ? { active: contribution.active } : {}), ...(typeof contribution.label === 'string' ? { label: contribution.label.slice(0, 1000) } : {}), ...(Number.isSafeInteger(contribution.scrollFrame) && contribution.scrollFrame >= 0 ? { scrollFrame: contribution.scrollFrame } : {}), ...(['slow', 'normal', 'fast'].includes(contribution.scrollSpeed) ? { scrollSpeed: contribution.scrollSpeed } : {}), ...(typeof contribution.image === 'string' && (contribution.image === '' || /^data:image\/(png|jpeg|webp);base64,/.test(contribution.image)) ? { image: contribution.image } : {}) };
+        if (contribution) patch = { ...patch, ...(typeof contribution.active === 'boolean' ? { active: contribution.active } : {}), ...(typeof contribution.label === 'string' ? { label: contribution.label.slice(0, 1000) } : {}), ...(Number.isSafeInteger(contribution.scrollFrame) && contribution.scrollFrame >= 0 ? { scrollFrame: contribution.scrollFrame } : {}), ...(['slow', 'normal', 'fast'].includes(contribution.scrollSpeed) ? { scrollSpeed: contribution.scrollSpeed } : {}), ...(contribution.textLayout === 'stacked' ? { textLayout: 'stacked' } : {}), ...(typeof contribution.image === 'string' && (contribution.image === '' || /^data:image\/(png|jpeg|webp);base64,/.test(contribution.image)) ? { image: contribution.image } : {}) };
       } catch (error) { record.reason = `Visual contribution failed: ${error.message}`; }
     }
     return patch;
   }
-  renderKey(key) { const patch = this.visual(key); return patch ? { ...key, ...(patch.label !== undefined ? { label: patch.label } : {}), ...(patch.image !== undefined ? { image: patch.image } : {}), ...(patch.scrollFrame !== undefined ? { scrollFrame: patch.scrollFrame } : {}), ...(patch.scrollSpeed !== undefined ? { scrollSpeed: patch.scrollSpeed } : {}) } : key; }
+  renderKey(key) { const patch = this.visual(key); return patch ? { ...key, ...(patch.label !== undefined ? { label: patch.label } : {}), ...(patch.image !== undefined ? { image: patch.image } : {}), ...(patch.scrollFrame !== undefined ? { scrollFrame: patch.scrollFrame } : {}), ...(patch.scrollSpeed !== undefined ? { scrollSpeed: patch.scrollSpeed } : {}), ...(patch.textLayout === 'stacked' ? { textLayout: 'stacked' } : {}) } : key; }
   snapshot() {
     if (this.cached) return this.cached;
     const state = this.context.getState();

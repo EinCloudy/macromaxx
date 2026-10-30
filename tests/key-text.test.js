@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initialState, makeKey, validateState, duplicateKey } from '../shared/model.js';
-import { keyFontSize, keyTextLayout, scrollingKeyText, globalFontSize, resolvedKeyFont, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../shared/key-text.js';
+import { keyFontSize, keyTextLayout, scrollingKeyText, stackedKeyText, globalFontSize, resolvedKeyFont, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../shared/key-text.js';
 
 test('scrolling text only moves when it exceeds the available width', () => {
   const measure = text => text.length * 10;
@@ -11,6 +11,19 @@ test('scrolling text only moves when it exceeds the available width', () => {
   assert.equal(scrollingKeyText('a long track title', 10, measure, 'slow').offset, 4);
   assert.equal(scrollingKeyText('a long track title', 10, measure, 'fast').offset, 16);
   assert.equal(scrollingKeyText('a long track title', 280, measure).offset, 4);
+});
+
+test('stacked fields truncate or scroll independently without displacing the artist', () => {
+  const measure = text => text.length * 10;
+  const key = { textLayout: 'stacked', label: 'A very long track title\nArtist' };
+  const fixed = stackedKeyText(key, 16, measure);
+  assert.equal(fixed.lines.length, 2);
+  assert.match(fixed.lines[0].text, /…$/);
+  assert.equal(fixed.lines[1].text, 'Artist');
+  const moving = stackedKeyText({ ...key, scrollFrame: 10 }, 16, measure);
+  assert.equal(moving.lines[0].scroll.offset, 8);
+  assert.equal(moving.lines[1].scroll, undefined);
+  assert.equal(stackedKeyText({ label: key.label }, 16, measure), null);
 });
 import { visualSignature, collectVisuals } from '../shared/visuals.js';
 

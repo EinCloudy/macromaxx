@@ -104,6 +104,11 @@ test('Tile text selection and scrolling preserve legacy defaults', () => {
   assert.equal(tileVisual(key, state, 42).scrollSpeed, 'normal');
   action.scrollSpeed = 'fast';
   assert.equal(tileVisual(key, state, 42).scrollSpeed, 'fast');
+  action.textLayout = 'stacked';
+  assert.equal(tileVisual(key, state).label, 'Track\nArtist');
+  assert.equal(tileVisual(key, state).textLayout, 'stacked');
+  action.content = 'album-cover';
+  assert.equal(tileVisual(key, state).label, 'Track\nArtist');
   state.players[0].title = '';
   assert.equal(tileVisual(key, state).label, 'Artist');
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Icon } from './icons.jsx';
 import { visualSignature } from '../shared/visuals.js';
-import { keyFontSize, keyTextLayout, scrollingKeyText } from '../shared/key-text.js';
+import { keyFontSize, keyTextLayout, scrollingKeyText, stackedKeyText } from '../shared/key-text.js';
 const cache = new Map();
 async function image(src) {
   return new Promise((resolve, reject) => {
@@ -33,8 +33,10 @@ async function drawKey(key, active) {
   if (key) {
     const fontSize = keyFontSize(key);
     ctx.font = `500 ${fontSize}px sans-serif`;
-    const scroll = scrollingKeyText(key.label, key.scrollFrame, (text) => ctx.measureText(text).width, key.scrollSpeed);
-    const layout = keyTextLayout(scroll ? 'X' : key.label, fontSize, (text) => ctx.measureText(text).width);
+    const measure = (text) => ctx.measureText(text).width;
+    const stacked = stackedKeyText(key, fontSize, measure);
+    const scroll = stacked ? null : scrollingKeyText(key.label, key.scrollFrame, measure, key.scrollSpeed);
+    const layout = stacked || keyTextLayout(scroll ? 'X' : key.label, fontSize, measure);
     if (key.image) ctx.drawImage(await image(key.image), 0, 0, 144, 144);
     else {
       const svg = renderToStaticMarkup(
@@ -60,7 +62,17 @@ async function drawKey(key, active) {
       ctx.fillRect(0, layout.textTop - 4, 144, 148 - layout.textTop);
       ctx.fillStyle = '#fff';
     }
-    if (scroll) {
+    if (stacked) {
+      stacked.lines.forEach((line, i) => {
+        const y = layout.textTop + (i + 0.5) * layout.lineHeight;
+        if (!line.scroll) { ctx.fillText(line.text, 72, y); return; }
+        ctx.save(); ctx.beginPath(); ctx.rect(8, layout.textTop + i * layout.lineHeight, 128, layout.lineHeight); ctx.clip(); ctx.textAlign = 'left';
+        const x = 8 - line.scroll.offset;
+        ctx.fillText(line.text, x, y);
+        ctx.fillText(line.text, x + line.scroll.width + line.scroll.gap, y);
+        ctx.restore();
+      });
+    } else if (scroll) {
       ctx.save();
       ctx.beginPath(); ctx.rect(8, layout.textTop, 128, layout.lineHeight); ctx.clip();
       ctx.textAlign = 'left';

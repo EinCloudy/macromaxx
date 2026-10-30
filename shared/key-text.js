@@ -71,3 +71,19 @@ export function scrollingKeyText(label, frame, measure, speed = 'normal') {
   const step = speed === 'slow' ? 0.4 : speed === 'fast' ? 1.6 : 0.8;
   return { text, width, offset: (frame * step) % (width + gap), gap };
 }
+
+// Stacked media fields each occupy exactly one line, scrolling or truncating independently.
+export function stackedKeyText(key, fontSize, measure) {
+  if (key?.textLayout !== 'stacked' || !key.label) return null;
+  const fields = key.label.split('\n').slice(0, 2);
+  const layout = keyTextLayout(fields.map(() => 'X').join('\n'), fontSize, measure);
+  const lines = fields.map((field) => {
+    const scroll = scrollingKeyText(field, key.scrollFrame, measure, key.scrollSpeed);
+    if (scroll) return { text: scroll.text, scroll };
+    const chars = Array.from(field);
+    if (measure(field) <= 128) return { text: field };
+    while (chars.length && measure(chars.join('') + '…') > 128) chars.pop();
+    return { text: chars.join('') + '…' };
+  });
+  return { ...layout, lines };
+}

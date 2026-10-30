@@ -66,7 +66,9 @@ export function tileVisual(key, state, scrollFrame = 0) {
   const player = selectPlayer(state, action.player); if (!player) return null;
   const textOnly = action.content === 'track-info';
   const fields = action.textFields || (textOnly || action.showTitle ? (action.showArtist ? 'both' : 'title') : 'none');
-  const label = [fields === 'title' || fields === 'both' ? player.title : '', fields === 'artist' || fields === 'both' ? player.artist : ''].filter(Boolean).join(' · ');
+  const stacked = fields === 'both' && action.textLayout === 'stacked';
+  const label = [fields === 'title' || fields === 'both' ? player.title : '', fields === 'artist' || fields === 'both' ? player.artist : ''].filter(Boolean).map(value => value.replace(/[\r\n]+/g, ' ')).join(stacked ? '\n' : ' · ');
   const text = label && action.scrollText ? { scrollFrame, scrollSpeed: ['slow', 'fast'].includes(action.scrollSpeed) ? action.scrollSpeed : 'normal' } : {};
-  return { active: false, ...(textOnly ? { image: '', label, ...text } : { ...(player.cover ? { image: player.cover, label: '' } : {}), ...(label ? { label, ...text } : {}) }) };
+  const layout = label && stacked ? { textLayout: 'stacked' } : {};
+  return { active: false, ...(textOnly ? { image: '', label, ...text, ...layout } : { ...(player.cover ? { image: player.cover, label: '' } : {}), ...(label ? { label, ...text, ...layout } : {}) }) };
 }
