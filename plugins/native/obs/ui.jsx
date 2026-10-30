@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Icon } from '../../../src/icons.jsx';
 import { api } from '../../../src/api.js';
 import { Select, TextField } from '../fields.jsx';
+import { clearCredentialFields, hasMissingCredentials } from '../../../shared/workspace-credentials.js';
 
 export function OBSEditor({ action, update, status }) {
   const obs = status.obs || {};
@@ -22,10 +23,11 @@ export function OBSSettings({ state, status, change, perform, flush }) {
   };
   return <section className="settings-card">
     <div className="settings-title"><span className="action-icon blue"><Icon name="Video" /></span><div><h3>OBS connection</h3><p>OBS WebSocket · Linux, Windows & macOS</p></div><span className={`connection ${obs.connected ? 'connected' : ''}`}><i />{obs.connected ? 'Connected' : 'Offline'}</span></div>
-    <TextField label="WebSocket address" value={state.settings.obsUrl} onChange={obsUrl => change(s => { s.settings.obsUrl = obsUrl; })} />
-    <label className="field"><span>Server password</span><input type="password" autoComplete="off" placeholder="Optional" value={state.settings.obsPassword} onChange={e => change(s => { s.settings.obsPassword = e.target.value; })} /></label>
+    {hasMissingCredentials(state.settings) && <p className="notice">Credentials were omitted. Complete the missing fields in Settings before connecting.</p>}
+    <TextField label="WebSocket address" value={state.settings.obsUrl} onChange={obsUrl => change(s => { s.settings.obsUrl = obsUrl; clearCredentialFields(s.settings, ['obsUrl']); })} />
+    <label className="field"><span>Server password</span><input type="password" autoComplete="off" placeholder="Optional" value={state.settings.obsPassword} onChange={e => change(s => { s.settings.obsPassword = e.target.value; clearCredentialFields(s.settings, ['obsPassword']); })} /></label>
     <button className="button primary" disabled={busy} onClick={connect}><Icon name={obs.connected ? 'Unplug' : 'Plug'} size={16} />{busy ? 'Please wait …' : obs.connected ? 'Disconnect' : 'Connect to OBS'}</button>
     {obs.connected && <div className="obs-live"><span><i className="green-dot" />{obs.scene}</span><span>REC {obs.recording ? '● Active' : 'Inactive'}</span><span>LIVE {obs.streaming ? '● Active' : 'Inactive'}</span></div>}
-    <p className="muted-text">Connection details are stored locally and included in workspace exports. Changing the address or password takes effect on the next connection.</p>
+    <p className="muted-text">Passwords are stored locally. Export lets you include or omit credentials; keep files with credentials private. Changing connection details disconnects OBS; connect again to apply them.</p>
   </section>;
 }

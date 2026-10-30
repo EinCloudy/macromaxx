@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+- A single Export button offers exports with or without credentials (without is the default). Files with credentials contain unencrypted secrets and must be kept private.
+- Exports without credentials omit potentially secret webhook/plugin/environment data without changing the local workspace.
+- Importing shared workspaces prompts for missing values; affected actions remain blocked until completed. Existing version-1 exports remain supported.
+- Review scripts, text, arguments and images before sharing; exports without credentials are not complete credential backups.
+
 ## [0.1.0]
 
 Initial MacroMaxx preview release.
@@ -22,6 +29,6 @@ Initial MacroMaxx preview release.
   warn about or block installation. Public distribution should use signed builds.
 - Discord voice control is experimental and authorization is not confirmed working.
 - Native features differ by platform; see the platform matrix in the repository.
-- Workspace exports currently include stored OBS passwords and webhook credentials.
-  Do not share exports containing secrets.
+- Exports created by this initial preview include stored OBS passwords and webhook
+  credentials. Re-export without credentials in a newer build before sharing.
 - No automatic updates; install new releases manually.

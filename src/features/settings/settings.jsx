@@ -6,8 +6,9 @@ import { BuiltInSettings } from '../../../plugins/native/ui.jsx';
 import { AutoProfileSettings } from './auto-profile-settings.jsx';
 import { AnimationSettings, TypographySettings } from './appearance-settings.jsx';
 import { ScreensaverSettings } from './screensaver-settings.jsx';
+import { missingWorkspaceCredentials } from '../../../shared/workspace-credentials.js';
 
-export function Settings({ state, status, change, perform, flush }) {
+export function Settings({ state, status, change, perform, flush, completeCredentials }) {
   const [busy, setBusy] = useState('');
   const task = async (name, fn, message) => {
     setBusy(name);
@@ -125,8 +126,13 @@ export function Settings({ state, status, change, perform, flush }) {
           <h4>Transfer your workspace</h4>
           <p className="muted-text">
             Back up or restore profiles, key images, and settings as JSON. Importing replaces the
-            current workspace.
+            current workspace. Export lets you choose whether to include credentials. Choose without
+            credentials for sharing; files with credentials contain passwords and tokens as plain
+            text and must be kept private.
           </p>
+          {missingWorkspaceCredentials(state).length > 0 && (
+            <Button onClick={completeCredentials}>Complete missing credentials</Button>
+          )}
           <div className="tool-row">
             <Button
               icon="Download"

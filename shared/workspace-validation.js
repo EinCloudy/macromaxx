@@ -1,6 +1,7 @@
 import { MIN_FONT_SIZE, MAX_FONT_SIZE } from './key-text.js';
 import { catalog } from './action-catalog.js';
 import { SCREENSAVERS, SCREENSAVER_GRAPHICS_PRESETS } from './screensaver.js';
+import { validateCredentialMarkers } from './workspace-credentials.js';
 
 const actionTypes = new Set(catalog.map((action) => action.type));
 const hexColor = /^#[0-9a-f]{6}$/i;
@@ -10,6 +11,7 @@ function validateActions(actions) {
   for (const action of actions) {
     if (!action || typeof action.id !== 'string' || !actionTypes.has(action.type))
       throw new Error('Unknown action type.');
+    validateCredentialMarkers(action);
   }
 }
 
@@ -66,6 +68,7 @@ function validateSettings(settings) {
     settings.brightness > 100
   )
     throw new Error('Invalid settings.');
+  validateCredentialMarkers(settings);
   if (
     typeof settings.autostart !== 'boolean' ||
     typeof settings.closeToTray !== 'boolean' ||

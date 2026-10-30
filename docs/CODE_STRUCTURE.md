@@ -36,6 +36,8 @@ APIs or Electron bridge calls.
 - `action-catalog.js`: portable action definitions and defaults.
 - `workspace-validation.js`: import/persistence validation, split into settings,
   action-chain, key and workspace checks.
+- `workspace-credentials.js`: non-mutating export omission, validated missing-field
+  markers and explicit credential completion. Shared by the renderer and runners.
 - Other modules cover individual concerns such as deck slots, key typography,
   visual signatures, automatic-profile rules and plugin/action library metadata.
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import { missingWorkspaceCredentials } from '../../shared/workspace-credentials.js';
 
 export function useRuntime({ replace, flush, notify }) {
   const [status, setStatus] = useState({});
@@ -8,6 +9,7 @@ export function useRuntime({ replace, flush, notify }) {
   const [logs, setLogs] = useState([]);
   const [pressed, setPressed] = useState([]);
   const [plugins, setPlugins] = useState([]);
+  const [credentialsRequired, setCredentialsRequired] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -16,6 +18,7 @@ export function useRuntime({ replace, flush, notify }) {
       .then((data) => {
         if (disposed) return;
         replace(data.state);
+        setCredentialsRequired(missingWorkspaceCredentials(data.state).length > 0);
         setStatus(data.status);
         setPath(data.folderPath);
         setLogs(data.logs);
@@ -34,6 +37,9 @@ export function useRuntime({ replace, flush, notify }) {
 
     const unsubscribe = api.subscribe((event) => {
       switch (event.type) {
+        case 'credentialsRequired':
+          setCredentialsRequired(true);
+          break;
         case 'flush':
           flush()
             .catch(() => {})
@@ -77,5 +83,7 @@ export function useRuntime({ replace, flush, notify }) {
     pressed,
     plugins,
     refreshPlugins,
+    credentialsRequired,
+    setCredentialsRequired,
   };
 }

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { migrateNativeSettings } from '../plugins/native/migrations.js';
+import { hasMissingCredentials, missingCredentialMessage } from '../shared/workspace-credentials.js';
 
 const require = createRequire(import.meta.url);
 const unavailable = reason => ({ available: false, reason });
@@ -79,6 +80,7 @@ export class NativePlugins {
   }
   handles(type) { return !!this.owner(type); }
   async execute(action, signal) {
+    if (hasMissingCredentials(action)) throw new Error(missingCredentialMessage);
     if (this.closing) throw new Error('Native integrations are closing.');
     const record = this.owner(action.type), availability = this.availability(action);
     if (!record || !availability.available) throw new Error(availability.reason || `No native provider for ${action.type}.`);
@@ -88,6 +90,7 @@ export class NativePlugins {
     if (this.closing) return null;
     const record = this.owner(action?.type);
     if (record?.state !== 'loaded' || !record.instance.isHold?.(action)) return null;
+    if (hasMissingCredentials(action)) return Promise.reject(new Error(missingCredentialMessage));
     const check = this.availability(action);
     if (!check.available) return Promise.reject(new Error(check.reason));
     return Promise.resolve(record.instance.beginHold(action));

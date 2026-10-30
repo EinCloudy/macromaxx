@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { api, desktop } from './api.js';
 import { Icon } from './icons.jsx';
-import { Tool } from './components/ui.jsx';
+import { Button, Tool } from './components/ui.jsx';
 import { Sidebar, Topbar } from './components/sidebar.jsx';
 import { DeckEditor } from './features/editor/deck-editor.jsx';
 import { ProfileDialogs } from './features/profiles/profile-dialogs.jsx';
@@ -13,6 +13,8 @@ import { useWorkspace } from './hooks/use-workspace.jsx';
 import { useNotifications } from './hooks/use-notifications.jsx';
 import { useRuntime } from './hooks/use-runtime.jsx';
 import { useKeyImages } from './hooks/use-key-images.jsx';
+import { missingWorkspaceCredentials } from '../shared/workspace-credentials.js';
+import { CredentialsDialog } from './features/settings/credentials-dialog.jsx';
 
 export default function App() {
   const { toast, dismiss, notify, perform } = useNotifications();
@@ -29,9 +31,15 @@ export default function App() {
     pressed,
     plugins,
     refreshPlugins,
+    credentialsRequired,
+    setCredentialsRequired,
   } = useRuntime({ replace, flush, notify });
   const [page, setPage] = useState('editor');
   const [modal, setModal] = useState(null);
+  const missingCredentials = useMemo(
+    () => (state ? missingWorkspaceCredentials(state).length : 0),
+    [state],
+  );
   useKeyImages(state, status, notify);
 
   async function navigate(target) {
@@ -121,7 +129,14 @@ export default function App() {
       break;
     case 'settings':
       content = (
-        <Settings state={state} status={status} change={change} perform={perform} flush={flush} />
+        <Settings
+          state={state}
+          status={status}
+          change={change}
+          perform={perform}
+          flush={flush}
+          completeCredentials={() => setCredentialsRequired(true)}
+        />
       );
       break;
   }
@@ -147,6 +162,15 @@ export default function App() {
       />
       <main className="main">
         <Topbar page={page} saveState={saveState} onHelp={() => setModal('help')} />
+        {missingCredentials > 0 && (
+          <div className="notice" role="status">
+            <Icon name="CircleAlert" size={17} />
+            <span>
+              {missingCredentials} missing credential field(s). Affected actions are blocked.
+            </span>
+            <Button onClick={() => setCredentialsRequired(true)}>Complete credentials</Button>
+          </div>
+        )}
         {content}
       </main>
       {toast && (
@@ -169,6 +193,13 @@ export default function App() {
             setPath([]);
             setSelected(0);
           }}
+        />
+      )}
+      {credentialsRequired && missingCredentials > 0 && (
+        <CredentialsDialog
+          state={state}
+          change={change}
+          onClose={() => setCredentialsRequired(false)}
         />
       )}
     </div>

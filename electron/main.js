@@ -13,6 +13,7 @@ import { validateState } from '../shared/model.js';
 import { isKeyActive } from '../shared/visuals.js';
 import { deckSlots } from '../shared/deck-layout.js';
 import { createDiagnosticReport } from '../shared/diagnostics.js';
+import { createWorkspaceExport, missingWorkspaceCredentials } from '../shared/workspace-credentials.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dev = process.argv.includes('--dev');
 const nativeDirectory = path.join(here, '../plugins/native');
@@ -38,7 +39,7 @@ const publishState = () => emit({ type: 'state', state, folderPath });
 function releasePhysicalKeys() {
   for (const index of pressed.keys()) emit({ type: 'press', index, down: false });
   pressed.clear(); actions?.cancel();
-  void native?.releaseAll().catch(e => log('error', 'Native input release', e.message));
+  return native?.releaseAll().catch(e => log('error', 'Native input release', e.message));
 }
 async function persist() { await store.save(state); }
 async function navigate(target) {
@@ -172,17 +173,27 @@ else {
       reconnect: async () => { releasePhysicalKeys(); await devices.reconnect(); },
       pickFile: async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'] }); return result.canceled ? null : result.filePaths[0]; },
       pickImage: async () => { const r = await dialog.showOpenDialog(win, { filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }], properties: ['openFile'] }); if (r.canceled) return null; const sharp = (await import('sharp')).default; const buffer = await sharp(r.filePaths[0], { limitInputPixels: 20000000 }).resize(256, 256, { fit: 'cover' }).png().toBuffer(); return 'data:image/png;base64,' + buffer.toString('base64'); },
-      exportWorkspace: async () => { const r = await dialog.showSaveDialog(win, { defaultPath: 'MacroMaxx-Workspace.json', filters: [{ name: 'MacroMaxx Workspace', extensions: ['json'] }] }); if (r.canceled) return false; await fs.writeFile(r.filePath, JSON.stringify(state, null, 2), { mode: 0o600 }); return true; },
+      exportWorkspace: async () => {
+        const confirm = await dialog.showMessageBox(win, { type: 'question', message: 'Export workspace', detail: 'Without credentials: omit passwords, webhook URLs/headers/bodies, plugin configurations, custom environment values and URLs with login details, query parameters or fragments. Review texts, scripts, arguments, labels and images before sharing.\n\nWith credentials: include all values currently stored in this workspace, including passwords and tokens, as plain text. Keep this file private; do not share it.', buttons: ['Cancel', 'Without credentials', 'With credentials'], defaultId: 1, cancelId: 0 });
+        if (![1, 2].includes(confirm.response)) return false;
+        const r = await dialog.showSaveDialog(win, { defaultPath: 'MacroMaxx-Workspace.json', filters: [{ name: 'MacroMaxx Workspace', extensions: ['json'] }] });
+        if (r.canceled) return false;
+        await fs.writeFile(r.filePath, JSON.stringify(validateState(createWorkspaceExport(state, { includeCredentials: confirm.response === 2 })), null, 2), { mode: 0o600 }); return true;
+      },
       importWorkspace: async () => {
         const r = await dialog.showOpenDialog(win, { filters: [{ name: 'MacroMaxx Workspace', extensions: ['json'] }], properties: ['openFile'] }); if (r.canceled) return null;
         const stat = await fs.stat(r.filePaths[0]); if (stat.size > 25000000) throw new Error('File too large (maximum 25 MB).');
         const imported = validateState(JSON.parse(await fs.readFile(r.filePaths[0], 'utf8')));
-        const confirm = await dialog.showMessageBox(win, { type: 'question', message: 'Replace the current workspace?', detail: 'The current version will be kept as a backup. Imported actions only run when a key is triggered.', buttons: ['Cancel', 'Import'], defaultId: 0, cancelId: 0 }); if (confirm.response !== 1) return null;
+        const missing = missingWorkspaceCredentials(imported).length;
+        const confirm = await dialog.showMessageBox(win, { type: 'question', message: 'Replace the current workspace?', detail: `The current version will be kept as a backup. Imported actions only run when a key is triggered.${missing ? `\n\n${missing} credential field(s) were omitted. Complete them in Settings before using affected actions. Existing local credentials will not be copied into this workspace.` : '\n\nThis file may include credentials. Only import files you trust.'}`, buttons: ['Cancel', 'Import'], defaultId: 0, cancelId: 0 }); if (confirm.response !== 1) return null;
         const previous = state.settings;
+        await releasePhysicalKeys();
         imported.settings.autostart = previous.autostart;
         await native.beforeSettings(previous, imported.settings);
         await store.save(imported); state = imported; folderPath = [];
-        await native.configure(previous, state.settings); publishState(); status(); await devices.render(); return state;
+        await native.configure(previous, state.settings); publishState(); status();
+        if (missing) emit({ type: 'credentialsRequired' });
+        await devices.render(); return state;
       },
       plugins: () => plugins.scan(), openPlugins: () => shell.openPath(path.join(app.getPath('userData'), 'plugins')),
       cancel: async () => { actions.cancel(); await native.releaseAll(); }, quit: () => { quitting = true; app.quit(); }, selectDevice: (_, devicePath) => devices.select(devicePath)

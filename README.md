@@ -99,7 +99,7 @@ The **Native Media** plugin uses shared RobotJS global playback/volume keys wher
 
 **Open application** can search installed desktop entries (including Flatpak exports), launch a Flatpak ID, or open a custom executable/file. Configure arguments as a JSON array, a working directory, environment variables as a JSON object, and optional terminal mode. Arguments remain separate argv entries; application launches do not interpolate shell syntax. Existing path-only actions remain supported.
 
-**Shell script** explicitly executes a trusted script with your user permissions. Arguments become `$1`, `$2`, etc. Output and errors appear in Activity. Foreground scripts have a 60-second timeout and cancellation terminates their process group. Detached subprocesses are outside that lifecycle. Environment values are saved and exported with the workspace.
+**Shell script** explicitly executes a trusted script with your user permissions. Arguments become `$1`, `$2`, etc. Output and errors appear in Activity. Foreground scripts have a 60-second timeout and cancellation terminates their process group. Detached subprocesses are outside that lifecycle. Environment values are saved locally and included only when exporting with credentials. Scripts and arguments are exported unchanged; review them for embedded secrets before sharing.
 
 ### Linux audio and microphone holds
 
@@ -169,7 +169,19 @@ Open **Diagnostics** in the sidebar for live deck/OBS connections, native provid
 
 `workspace.json` is stored in Electron's user-data directory (usually `~/.config/MacroMaxx/` or `~/.config/macromaxx/` on Linux, depending on the app name). The previous valid version is kept beside it as `workspace.json.bak`. Writes are serialized through a temporary file; a damaged primary file is recovered from the backup. Activity logs stay in memory.
 
-Import/export is available in Settings. Importing replaces the workspace after confirmation. Images are embedded. OBS passwords and webhook credentials are stored locally and **are also included in export files**.
+Import/export is available in Settings and export is also available in the editor. Importing replaces the workspace after confirmation. Images are embedded.
+
+### Export with or without credentials
+
+Click **Export**, then choose **Without credentials** (the default), **With credentials**, or **Cancel** before choosing a file. Export does not change your local workspace.
+
+**Without credentials** omits OBS passwords and other credential-named string fields in action/settings objects. Webhook endpoints are omitted entirely because secret tokens can be part of their paths, not just query parameters. Nonempty webhook headers and request bodies, plugin configurations and custom application/script environment values are also omitted conservatively, since their contents can contain credentials under arbitrary names. Other website/OBS URLs with login details, query parameters or fragments are omitted.
+
+**With credentials** preserves all values currently stored in the workspace, including passwords, tokens, webhook data, plugin configurations and environment values, as **unencrypted plain text**. Keep these files private; do not share them. Credentials stored outside the workspace (such as Discord's in-memory authorization or Wayland permission tokens) are not included, and previously omitted values cannot be recovered by selecting this option.
+
+Omitted fields are marked without retaining their previous values. Importing such a file opens **Complete missing credentials**; enter your own values one field at a time or choose **Finish later**. A persistent banner and a button in Settings reopen the dialog. Affected actions (including OBS connection/control) cannot run until their missing fields are completed, either in the dialog or their normal editor. Use `{}` to explicitly accept an empty JSON object. Existing local credentials are never merged into an imported workspace. Missing-field markers survive saving, restarting, duplication and re-export. Older version-1 exports remain importable, including any credentials they already contain; re-export them **without credentials** to apply the omission rules.
+
+**Review exports before sharing:** text, scripts, command arguments, labels, images, file paths and ordinary URL paths remain unchanged and may contain personal data or manually embedded secrets. Automatic omission is not a general-purpose secret scanner. Exports **without credentials are not complete credential backups**. Local credentials still use the existing private workspace storage, not an OS keychain or encrypted vault.
 
 The app controls one active USB deck. Select a target device if multiple decks are connected. Key devices recognized by `@elgato-stream-deck/node` are supported. Encoders, touch strips, and model-specific extras are not represented in the editor. Keys outside a smaller device's visible grid remain in the profile.
 

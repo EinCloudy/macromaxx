@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises';
+import { hasMissingCredentials, missingCredentialMessage } from '../shared/workspace-credentials.js';
 export class Actions {
   constructor({ plugins, shell, getState, navigate, log, updateKey, status, native }) {
     Object.assign(this, { plugins, shell, getState, navigate, log, updateKey, status, native });
@@ -18,6 +19,7 @@ export class Actions {
     } finally { this.running.delete(key.id); this.status(); }
   }
   async run(action, signal) {
+    if (hasMissingCredentials(action) || (action.type === 'obs' && hasMissingCredentials(this.getState().settings))) throw new Error(missingCredentialMessage);
     if (this.native?.handles(action.type)) return this.native.execute(action, signal);
     switch (action.type) {
       case 'url': { const url = new URL(action.url); if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) throw new Error('Only http, https, and mailto URLs are allowed.'); await this.shell.openExternal(url.href); break; }

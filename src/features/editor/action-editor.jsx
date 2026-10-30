@@ -3,12 +3,16 @@ import { catalog } from '../../../shared/model.js';
 import { NativeActionEditor } from '../../../plugins/native/ui.jsx';
 import { Icon } from '../../icons.jsx';
 import { Field, Tool } from '../../components/ui.jsx';
+import {
+  clearCredentialFields,
+  hasMissingCredentials,
+} from '../../../shared/workspace-credentials.js';
 
 export function ActionEditor({
   action,
   index,
   total,
-  update,
+  update: onUpdate,
   remove,
   move,
   state,
@@ -18,6 +22,11 @@ export function ActionEditor({
 }) {
   const item = catalog.find((c) => c.type === action.type);
   const [recording, setRecording] = useState(false);
+  const update = (patch) => {
+    const next = { ...action };
+    clearCredentialFields(next, Object.keys(patch));
+    onUpdate({ ...patch, missingCredentials: next.missingCredentials });
+  };
   const input = (name, label, placeholder, multiline = false) => (
     <Field label={label}>
       {multiline ? (
@@ -70,6 +79,12 @@ export function ActionEditor({
           <Tool icon="X" title="Remove action" onClick={remove} />
         </div>
       </div>
+      {hasMissingCredentials(action) && (
+        <p className="notice" role="status">
+          Credentials omitted from export. Open Settings → Complete missing credentials to finish
+          this action. It cannot run yet.
+        </p>
+      )}
       <NativeActionEditor action={action} update={update} status={status} perform={perform} />
       {action.type === 'hotkey' && (
         <>
