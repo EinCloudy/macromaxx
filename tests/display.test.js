@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import { Devices } from '../electron/devices.js';
 import { initialState, makeKey } from '../shared/model.js';
-import { backKey, collectVisuals, visualSignature, isKeyActive } from '../shared/visuals.js';
+import { backKey, collectVisuals, visualSignature, isKeyActive, liveKey } from '../shared/visuals.js';
+import { tileVisual } from '../plugins/native/media/index.js';
 import { resolvedKeyFont } from '../shared/key-text.js';
 
 async function artwork(key, red) {
@@ -85,4 +86,23 @@ test('Hardware picks globally sized artwork for inherited keys and preserves ind
   assert.deepEqual(writes, [[0, 24], [1, 18], [0, 30]]);
   assert.equal(inherited.fontSize, undefined);
   assert.equal(custom.fontSize, 18);
+});
+test('Tile cover changes and fallback use identical editor and hardware signatures', async () => {
+  const state = initialState(), tile = makeKey('tile');
+  state.profiles[0].keys[0] = tile;
+  let patch = tileVisual(tile, { players: [{ id: 'player', title: 'First', cover: 'data:image/png;base64,Zmlyc3Q=' }] });
+  const live = () => ({ native: { visuals: { [tile.id]: patch } } });
+  const { device, writes } = fakeDeck(() => [liveKey(tile, live())]);
+  const send = async red => {
+    const key = collectVisuals(state, null, live()).find(entry => entry.key?.id === tile.id).key;
+    assert.equal(key.image, liveKey(tile, live()).image);
+    await device.setImages([await artwork(key, red)]);
+  };
+  await send(10);
+  patch = tileVisual(tile, { players: [{ id: 'player', title: 'Second', cover: 'data:image/png;base64,c2Vjb25k' }] });
+  await send(20);
+  patch = tileVisual(tile, { players: [] });
+  await send(30);
+  assert.deepEqual(writes.map(write => write.pixels[0]), [10, 20, 30]);
+  assert.equal(tile.image, ''); assert.equal(tile.label, 'Tile');
 });

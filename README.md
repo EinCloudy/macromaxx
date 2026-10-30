@@ -91,9 +91,15 @@ Computer mouse/keyboard activity or deck input resets the idle timer. The first 
 
 In **Settings → Linux audio routing plugin**, explicitly create a null sink and remapped virtual microphone using PipeWire-Pulse/pactl. Optionally mix a physical microphone and monitor the mix on an output. No default device is changed. Select **MacroMaxx Virtual Microphone** in your voice app. Cleanup verifies ownership before removing this session's modules. This adapter and its routing are Linux-only; unsupported systems retain the assignment data.
 
-### MPRIS players
+### Media controls and Tiles
 
-The **Native Media** plugin uses shared RobotJS global playback/volume keys where available, including macOS. Linux prefers MPRIS for running players and retains player selection/transient track labels. OS fallback adapters remain available; the legacy AppleScript fallback provides only system volume/mute. Player-specific metadata/volume are not claimed without an adapter. **Settings → Native media** shows the detected capabilities.
+The **Native Media** plugin uses shared RobotJS global playback/volume keys where available, including macOS. Linux prefers MPRIS for running players and supports player-specific controls/volume. OS fallback adapters remain available; the legacy AppleScript fallback provides only system volume/mute. **Settings → Native media** shows the detected capabilities.
+
+Drag **Tile** from **Media & audio** onto a separate key to display **Album cover** or **Track information**. Covers can optionally include the title and artist. Tiles are display-only: pressing one does not change playback. Updates are transient, appear in both the editor and the physical deck, and do not replace the saved key image/label. Missing artwork or a closed player restores the configured appearance. Album covers are center-cropped to a square and cached in memory, not exported.
+
+Tiles use **MPRIS/playerctl on Linux**, **Windows media sessions on Windows 10 1809+ / Windows 11** (built-in Windows PowerShell), and a **bundled MediaRemote Adapter on macOS 11+**, including macOS 15.4+ and 26. Your player must publish its metadata/artwork to the OS; no integration can obtain artwork a player does not share. Linux and Windows allow player selection; macOS exposes only the current system player. No Spotify login, API key, Homebrew installation or keyboard permission is needed for Tiles. Player IDs may need reselecting when moving a workspace to another OS.
+
+**Building on macOS:** install Xcode Command Line Tools and CMake. `npm run dev` / `npm run build` downloads a revision-pinned, SHA-256-verified [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) source archive and builds a universal Intel/Apple Silicon helper. The script, framework and BSD license are included in the app; end users need no compiler or download. This adapter uses a private Apple API via the system Perl interpreter because direct access has been restricted since macOS 15.4. Future Apple changes may require an adapter update; failures are shown in Settings rather than silently claiming support.
 
 ### Applications and scripts
 

@@ -117,12 +117,12 @@ export class NativePlugins {
     for (const record of this.records) if (record.state === 'loaded') {
       try {
         const contribution = record.instance.visual?.(key);
-        if (contribution) patch = { ...patch, ...(typeof contribution.active === 'boolean' ? { active: contribution.active } : {}), ...(typeof contribution.label === 'string' ? { label: contribution.label.slice(0, 80) } : {}) };
+        if (contribution) patch = { ...patch, ...(typeof contribution.active === 'boolean' ? { active: contribution.active } : {}), ...(typeof contribution.label === 'string' ? { label: contribution.label.slice(0, 80) } : {}), ...(typeof contribution.image === 'string' && (contribution.image === '' || /^data:image\/(png|jpeg|webp);base64,/.test(contribution.image)) ? { image: contribution.image } : {}) };
       } catch (error) { record.reason = `Visual contribution failed: ${error.message}`; }
     }
     return patch;
   }
-  renderKey(key) { const patch = this.visual(key); return patch?.label !== undefined ? { ...key, label: patch.label } : key; }
+  renderKey(key) { const patch = this.visual(key); return patch ? { ...key, ...(patch.label !== undefined ? { label: patch.label } : {}), ...(patch.image !== undefined ? { image: patch.image } : {}) } : key; }
   snapshot() {
     if (this.cached) return this.cached;
     const state = this.context.getState();

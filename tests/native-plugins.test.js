@@ -27,7 +27,7 @@ function fixture(platform, disabled = [], failId) {
           actions: Object.fromEntries(Object.keys(manifest.actions || {}).map(type => [type, async action => calls.push([manifest.id, action.type])])),
           operations: { ping: () => manifest.id },
           capabilities: () => Object.fromEntries(Object.values(manifest.actions || {}).map(id => [id, { available: true }])),
-          visual: key => manifest.id === 'media' && key.actions.some(a => a.type === 'media') ? { active: true, label: 'Live title' } : null,
+           visual: key => manifest.id === 'media' && key.actions.some(a => ['media', 'tile'].includes(a.type)) ? { active: true, label: 'Live title', image: key.actions.some(a => a.type === 'tile' && a.content === 'track-info') ? '' : 'data:image/png;base64,Y292ZXI=' } : null,
           isHold: action => manifest.id === 'linux-audio' && action.command === 'ptt',
           beginHold: async () => async () => calls.push(['released']),
           close: () => closed.push(manifest.id),
@@ -70,7 +70,13 @@ test('Native dispatch, transient visuals, holds, and reverse cleanup use the plu
   const f = fixture('linux'); await f.host.initialize();
   await f.host.execute({ type: 'hotkey', keys: 'CTRL+A' }); assert.deepEqual(f.calls[0], ['keyboard', 'hotkey']);
   const key = f.state.profiles[0].keys[3], original = key.label;
-  const live = f.host.snapshot(); assert.equal(liveKey(key, live).label, 'Live title'); assert.equal(isKeyActive(key, null, live), true); assert.equal(key.label, original);
+   const live = f.host.snapshot(); assert.equal(liveKey(key, live).label, 'Live title'); assert.equal(isKeyActive(key, null, live), true); assert.equal(key.label, original);
+   assert.equal(liveKey(key, live).image, 'data:image/png;base64,Y292ZXI=');
+   assert.equal(f.host.renderKey(key).image, liveKey(key, live).image);
+   assert.equal(key.image, '');
+   const tile = makeKey('tile'); tile.actions[0].content = 'track-info'; tile.image = 'data:image/png;base64,b3JpZ2luYWw=';
+   assert.equal(f.host.renderKey(tile).image, '');
+   assert.notEqual(tile.image, '');
   const release = await f.host.beginHold({ type: 'audio', command: 'ptt' }); await release(); assert.deepEqual(f.calls.at(-1), ['released']);
   await assert.rejects(f.host.invoke('keyboard', 'toString'), /Unknown native plugin operation/);
   assert.equal(await f.host.invoke('keyboard', 'ping'), 'keyboard');

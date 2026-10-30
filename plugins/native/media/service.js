@@ -1,25 +1,33 @@
 import { run } from '../../../electron/commands.js';
 import { selectPlayer } from './players.js';
+import { loadCover } from './cover.js';
+import { readPlayers, mediaBackends } from './adapters.js';
+import { createHash } from 'node:crypto';
 export const playerCommands = ['playpause', 'play', 'pause', 'stop', 'next', 'previous', 'player-volume', 'player-volumeup', 'player-volumedown'];
 export class Media {
-  constructor(onStatus, execute = run) { this.onStatus = onStatus; this.run = execute; this.state = { available: false, players: [], error: '' }; }
-  start() { if (process.platform === 'linux') { this.refresh(); this.timer = setInterval(() => this.refresh(), 1500); } }
+  constructor(onStatus, execute = run, artwork = loadCover, platform = process.platform) { this.onStatus = onStatus; this.run = execute; this.artwork = artwork; this.platform = platform; this.covers = new Map(); this.state = { available: false, players: [], error: '', backend: mediaBackends[platform] }; }
+  async cover(url, track = '') {
+    if (this.closed || !url) return '';
+    const key = createHash('sha256').update(url).update(track).digest('hex');
+    if (!this.covers.has(key)) {
+      this.covers.set(key, Promise.resolve().then(() => this.artwork(url)).catch(() => ''));
+      if (this.covers.size > 32) this.covers.delete(this.covers.keys().next().value);
+    }
+    const result = await this.covers.get(key);
+    if (!result) this.covers.delete(key);
+    return result;
+  }
+  start() { if (!this.closed && !this.timer) { this.refresh(); this.timer = setInterval(() => this.refresh(), 1500); } }
   async refresh() {
-    if (process.platform !== 'linux' || this.closed) return this.state;
+    if (this.closed) return this.state;
     if (this.refreshing) return this.refreshing;
     this.refreshing = (async () => {
       let next;
       try {
-        const ids = await this.run('playerctl', ['-l']).catch(error => { if (error.code === 1) return ''; throw error; });
-        const players = (await Promise.all([...new Set(ids.split('\n').filter(Boolean))].map(async id => {
-          try {
-            const [status, metadata, volume] = await Promise.all([this.run('playerctl', ['--player', id, 'status']), this.run('playerctl', ['--player', id, 'metadata', '--format', '{{title}}\u001f{{artist}}']), this.run('playerctl', ['--player', id, 'volume']).catch(() => '')]);
-            const [title = '', artist = ''] = metadata.split('\u001f');
-            return { id, status, title, artist, volume: Math.round((Number(volume) || 0) * 100) };
-          } catch { return null; }
-        }))).filter(Boolean);
-        next = { available: true, players, error: '' };
-      } catch (error) { next = { available: false, players: [], error: 'Media control requires playerctl and an MPRIS-compatible player. ' + error.message }; }
+        const players = await Promise.all((await readPlayers(this.platform, this.run)).map(async ({ artUrl, ...player }) => ({ ...player, cover: await this.cover(artUrl, JSON.stringify([player.title, player.artist, player.album])) })));
+        next = { available: true, players, error: '', backend: mediaBackends[this.platform] };
+      } catch (error) { next = { available: false, players: [], error: `${mediaBackends[this.platform] || 'Media metadata'} unavailable: ${error.message}`, backend: mediaBackends[this.platform] }; }
+      if (this.closed) return this.state;
       if (JSON.stringify(next) !== JSON.stringify(this.state)) { this.state = next; this.onStatus(); }
       return this.state;
     })().finally(() => { this.refreshing = null; });
@@ -39,5 +47,5 @@ export class Media {
     } else args = [action.command === 'playpause' ? 'play-pause' : action.command];
     await this.run('playerctl', ['--player', player.id, ...args]); await this.refresh();
   }
-  close() { this.closed = true; clearInterval(this.timer); }
+  close() { this.closed = true; clearInterval(this.timer); this.covers.clear(); }
 }

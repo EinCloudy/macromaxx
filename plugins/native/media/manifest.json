@@ -1,7 +1,7 @@
 {
   "id": "media", "type": "bundled-native", "apiVersion": 1, "name": "Native Media",
-  "description": "Shared global media keys, with Linux MPRIS player selection/metadata and OS volume fallbacks.",
+  "description": "Media controls and live Tiles using Linux MPRIS, Windows media sessions and macOS MediaRemote.",
   "platforms": ["linux", "win32", "darwin"], "order": 40, "required": true, "builtIn": true, "main": "index.js",
-  "actions": { "media": "media.controls" }, "legacyOperations": { "refreshMedia": "refresh" },
-  "ui": { "icon": "Music2", "settings": ["MediaSettings"], "editors": { "media": "MediaEditor" } }
+  "actions": { "media": "media.controls", "tile": "media.tiles" }, "legacyOperations": { "refreshMedia": "refresh" },
+  "ui": { "icon": "Music2", "settings": ["MediaSettings"], "editors": { "media": "MediaEditor", "tile": "TileEditor" } }
 }

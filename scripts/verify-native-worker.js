@@ -15,4 +15,10 @@ if (kind === 'critical') {
   const context = new OfflineAudioContext(1, 16, 48000); const buffer = await context.startRendering();
   if (buffer.length !== 16) throw new Error('Offline audio rendering failed.');
   console.log('Electron native verification: node-web-audio-api rendered offline successfully (no physical output).');
+} else if (kind === 'media') {
+  const { readPlayers } = await import('../plugins/native/media/adapters.js');
+  const { run } = await import('../electron/commands.js');
+  const players = await readPlayers(process.platform, run);
+  if (!Array.isArray(players)) throw new Error('Media session adapter returned invalid data.');
+  console.log('Electron media verification: OS media sessions read successfully (no playback changes).');
 }

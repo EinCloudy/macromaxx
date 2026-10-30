@@ -11,7 +11,7 @@ test('Built-in actions use functional categories independently of their native p
   assert.equal(hotkey.defaults.keys, 'ALT+A');
   assert.equal(library.find(item => item.key === 'url').group, 'Connections');
   assert.equal(library.find(item => item.key === 'text').group, hotkey.group);
-  for (const type of ['media', 'audio', 'sound']) assert.equal(library.find(item => item.key === type).group, 'Media & audio');
+  for (const type of ['media', 'tile', 'audio', 'sound']) assert.equal(library.find(item => item.key === type).group, 'Media & audio');
   assert.deepEqual([...new Set(library.map(item => item.group))], ['Keyboard & text', 'Media & audio', 'Apps & system', 'Connections', 'Organization', 'Workflows']);
   assert.ok(!library.some(item => item.group.includes('Hidden backend')));
   assert.ok(!library.some(item => item.key === 'plugin'));

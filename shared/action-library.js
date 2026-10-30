@@ -2,7 +2,7 @@ import { catalog, makeAction, makeKey } from './model.js';
 
 const actionGroups = [
   ['Keyboard & text', ['hotkey', 'text']],
-  ['Media & audio', ['media', 'audio', 'sound']],
+  ['Media & audio', ['media', 'tile', 'audio', 'sound']],
   ['Apps & system', ['app', 'script', 'desktop']],
   ['Connections', ['url', 'webhook', 'obs', 'discord']],
   ['Organization', ['folder', 'profile']],

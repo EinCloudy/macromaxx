@@ -53,6 +53,7 @@ or replace an already published release/tag to ship a fix; increment the version
   `shasum -a 256 -c SHA256SUMS.txt`; Windows: `Get-FileHash <installer> -Algorithm SHA256`).
 - Install and launch on each target OS/architecture, including a clean user setup.
 - Connect the deck; test a key, folder, profile and live artwork change.
+- On each OS, add a **Tile**, play media in Spotify/Apple Music/a compatible browser, and check album art, title/artist overlays, track changes, pause, player closure, and missing artwork. Windows/Linux also need explicit-player selection checks. On macOS test 15.4+ or 26 as well as the minimum supported version; direct MediaRemote access is not sufficient on newer versions.
 - Unplug/reconnect USB; suspend/resume; hide/reopen the app.
 - Exercise supported keyboard, OBS and audio actions, including missing permissions.
 - Quit while a key/hold or sound is active; confirm cleanup.

@@ -72,7 +72,7 @@ The factory returns optional hooks:
 - `defaults(type)`: platform-specific defaults for **new** assignments, without rewriting imported actions.
 - `operations`: explicit RPC allowlist, accessed through `api.nativeCall(pluginId, operation, ...args)`. Prototype/inherited methods are not callable.
 - `status()`: serializable integration status. It must be pure and must not do I/O.
-- `visual(key)`: transient `{ label?, active? }`. It does not mutate the saved key.
+- `visual(key)`: transient `{ label?, image?, active? }`. Images must be PNG/JPEG/WebP base64 data URLs. The editor image bank and hardware renderer apply the same patch without mutating the saved key.
 - `isHold(action)` and `beginHold(action)`: physical key-down integration returning a release callback. The core does not know microphone- or OS-specific hold behavior.
 - `start`, `release`, `suspend`, `resume`, `beforeSettings(previous, next)`, `configure(previous, next)`, `close`: resource lifecycle hooks. Close runs in reverse plugin order and is idempotent at host level. Release/resume/suspend do not let an interactive permission dialog block unrelated plugins.
 

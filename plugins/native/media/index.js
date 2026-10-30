@@ -7,11 +7,11 @@ const windowsCommands = ['playpause', 'next', 'previous', ...systemCommands];
 export async function create(ctx) {
   const execute = ctx.runCommand || run;
   const linux = ctx.platform === 'linux';
-  const media = new Media(ctx.changed);
+  const media = new Media(ctx.changed, execute, undefined, ctx.platform);
   let systemAvailable = ctx.platform === 'win32' ? !!ctx.service('input')?.integrationAvailable : false;
   const refresh = async () => {
+    await media.refresh();
     if (linux) {
-      await media.refresh();
       systemAvailable = await execute('wpctl', ['--version']).then(() => true).catch(() => execute('pactl', ['--version']).then(() => true).catch(() => false));
     } else if (ctx.platform === 'darwin') systemAvailable = await execute('osascript', ['-e', 'return 1']).then(() => true).catch(() => false);
     ctx.changed(); return media.state;
@@ -22,11 +22,15 @@ export async function create(ctx) {
   const commands = () => [...new Set([...(linux && media.state.available ? playerCommands : []), ...globalCommands(), ...(systemReady() ? systemCommands : [])])];
   return {
     services: { media },
-    defaults: () => ctx.platform === 'darwin' && !commands().includes('playpause') ? { command: 'volumeup' } : {},
-    capabilities: () => ({ 'media.controls': { available: commands().length > 0, reason: commands().length ? '' : 'Required native media tools are unavailable.', features: { commands: commands(), globalCommands: globalCommands(), players: linux && media.state.available, titles: linux && media.state.available } } }),
+    defaults: type => type !== 'tile' && ctx.platform === 'darwin' && !commands().includes('playpause') ? { command: 'volumeup' } : {},
+    capabilities: () => ({
+      'media.controls': { available: commands().length > 0, reason: commands().length ? '' : 'Required native media tools are unavailable.', features: { commands: commands(), globalCommands: globalCommands(), players: linux && media.state.available, titles: media.state.available } },
+      'media.tiles': { available: media.state.available, reason: media.state.error, features: { contents: ['album-cover', 'track-info'], players: ctx.platform !== 'darwin' } },
+    }),
     supports: action => {
+      if (action.type === 'tile') return !action.content || ['album-cover', 'track-info'].includes(action.content) ? { available: true } : { available: false, reason: 'Unknown Tile content.' };
       if (action.command && !commands().includes(action.command)) return { available: false, reason: 'This media command is not implemented or available in the current OS adapter.' };
-      if (!linux && (action.showTitle || action.player && action.player !== 'auto')) return { available: false, reason: 'Player selection and track metadata currently require the Linux MPRIS adapter.' };
+      if (!linux && action.player && action.player !== 'auto') return { available: false, reason: 'Media control player selection currently requires the Linux MPRIS adapter. Tiles can select Windows media sessions independently.' };
       return { available: true };
     },
     actions: { media: async action => {
@@ -40,15 +44,22 @@ export async function create(ctx) {
       if (audio?.state.available) return audio.execute({ kind: 'output', target: 'default', command: action.command, volume: 5 });
       try { return await execute('wpctl', action.command === 'mute' ? ['set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle'] : ['set-volume', '-l', '1.5', '@DEFAULT_AUDIO_SINK@', action.command === 'volumeup' ? '5%+' : '5%-']); }
       catch { return execute('pactl', action.command === 'mute' ? ['set-sink-mute', '@DEFAULT_SINK@', 'toggle'] : ['set-sink-volume', '@DEFAULT_SINK@', action.command === 'volumeup' ? '+5%' : '-5%']); }
-    } },
+    }, tile: async () => { /* A Tile is display-only; pressing it never changes playback. */ } },
     operations: { refresh },
-    status: () => ({ media: linux ? media.state : { available: commands().length > 0, players: [], error: '', backend: globalCommands().includes('playpause') ? 'Shared/global media keys' : 'macOS volume/mute fallback' } }),
-    visual: key => linux ? mediaVisual(key, media.state) : null,
-    start: () => { if (linux) media.start(); }, resume: refresh, close: () => media.close(),
+    status: () => ({ media: media.state }),
+    visual: key => tileVisual(key, media.state) || mediaVisual(key, media.state),
+    start: () => media.start(), resume: refresh, close: () => media.close(),
   };
 }
 export function mediaVisual(key, state) {
   const action = key.actions?.find(a => a.type === 'media'); if (!action) return null;
   const player = selectPlayer(state, action.player);
-  return { ...(['playpause', 'play', 'pause'].includes(action.command) ? { active: player?.status === 'Playing' } : {}), ...(action.showTitle && player?.title ? { label: `${player.title}${action.showArtist && player.artist ? ' · ' + player.artist : ''}`.slice(0, 80) } : {}) };
+  return { ...(['playpause', 'play', 'pause'].includes(action.command) && player ? { active: player.status === 'Playing' } : {}), ...(action.showTitle && player?.title ? { label: `${player.title}${action.showArtist && player.artist ? ' · ' + player.artist : ''}`.slice(0, 80) } : {}) };
+}
+export function tileVisual(key, state) {
+  const action = key.actions?.find(a => a.type === 'tile'); if (!action) return null;
+  const player = selectPlayer(state, action.player); if (!player) return null;
+  const textOnly = action.content === 'track-info';
+  const label = `${player.title || ''}${action.showArtist && player.artist ? ' · ' + player.artist : ''}`.slice(0, 80);
+  return { active: false, ...(textOnly ? { image: '', label } : { ...(player.cover ? { image: player.cover, label: '' } : {}), ...(action.showTitle && label ? { label } : {}) }) };
 }

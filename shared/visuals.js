@@ -22,8 +22,14 @@ export function isKeyActive(key, obs, live = {}) {
 }
 
 export function liveKey(key, live = {}) {
-  const label = live.native?.visuals?.[key?.id]?.label;
-  return typeof label === 'string' ? { ...key, label: label.slice(0, 80) } : key;
+  const patch = live.native?.visuals?.[key?.id];
+  return patch
+    ? {
+        ...key,
+        ...(typeof patch.label === 'string' ? { label: patch.label.slice(0, 80) } : {}),
+        ...(typeof patch.image === 'string' ? { image: patch.image } : {}),
+      }
+    : key;
 }
 
 // Only appearance matters: the same artwork can be reused on any page/slot.
