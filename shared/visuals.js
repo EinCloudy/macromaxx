@@ -26,8 +26,10 @@ export function liveKey(key, live = {}) {
   return patch
     ? {
         ...key,
-        ...(typeof patch.label === 'string' ? { label: patch.label.slice(0, 80) } : {}),
+        ...(typeof patch.label === 'string' ? { label: patch.label.slice(0, 1000) } : {}),
         ...(typeof patch.image === 'string' ? { image: patch.image } : {}),
+        ...(Number.isSafeInteger(patch.scrollFrame) ? { scrollFrame: patch.scrollFrame } : {}),
+        ...(['slow', 'normal', 'fast'].includes(patch.scrollSpeed) ? { scrollSpeed: patch.scrollSpeed } : {}),
       }
     : key;
 }
@@ -44,6 +46,8 @@ export function visualSignature(key, active = false) {
           key.image || '',
           keyFontSize(key),
           !!active,
+          key.scrollFrame ?? null,
+          key.scrollSpeed ?? null,
         ]
       : null,
   );

@@ -1,13 +1,14 @@
 import React from 'react';
 import { Icon } from './icons.jsx';
-import { keyFontSize, keyTextLayout, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
+import { keyFontSize, keyTextLayout, scrollingKeyText, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
 
 let context;
 export function KeyArtwork({ keyData, active = false, defaultFontSize = DEFAULT_FONT_SIZE }) {
   context ||= document.createElement('canvas').getContext('2d');
   const fontSize = keyFontSize(keyData, defaultFontSize);
   context.font = `500 ${fontSize}px sans-serif`;
-  const layout = keyTextLayout(keyData.label, fontSize, (text) => context.measureText(text).width);
+  const scroll = scrollingKeyText(keyData.label, keyData.scrollFrame, (text) => context.measureText(text).width, keyData.scrollSpeed);
+  const layout = keyTextLayout(scroll ? 'X' : keyData.label, fontSize, (text) => context.measureText(text).width);
   const percent = (value) => `${(value / 144) * 100}%`;
   const units = (value) => `${(value / 144) * 100}cqw`;
   return (
@@ -64,9 +65,9 @@ export function KeyArtwork({ keyData, active = false, defaultFontSize = DEFAULT_
         className="key-face-label"
         style={{
           position: 'absolute',
-          left: 0,
+          left: scroll ? percent(8) : 0,
           top: percent(layout.textTop),
-          width: '100%',
+          width: scroll ? percent(128) : '100%',
           maxWidth: 'none',
           padding: 0,
           margin: 0,
@@ -80,7 +81,7 @@ export function KeyArtwork({ keyData, active = false, defaultFontSize = DEFAULT_
           overflow: 'hidden',
         }}
       >
-        {layout.lines.join('\n')}
+        {scroll ? <span style={{ display: 'block', position: 'relative', textAlign: 'left', transform: `translateX(${units(-scroll.offset)})` }}>{scroll.text}<span style={{ position: 'absolute', left: units(scroll.width + scroll.gap) }}>{scroll.text}</span></span> : layout.lines.join('\n')}
       </span>
     </div>
   );

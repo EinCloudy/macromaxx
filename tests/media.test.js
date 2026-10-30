@@ -87,6 +87,26 @@ test('Tile content and overlays are independent of playback controls and stored 
   assert.equal(tileVisual(key, state), null);
   assert.equal(mediaVisual(key, state), null);
 });
+test('Tile text selection and scrolling preserve legacy defaults', () => {
+  const action = { type: 'tile', content: 'track-info' };
+  const key = { actions: [action] };
+  const state = { players: [{ id: 'player', status: 'Playing', title: 'Track', artist: 'Artist', cover: 'cover' }] };
+  assert.equal(tileVisual(key, state).label, 'Track');
+  for (const [fields, expected] of [['title', 'Track'], ['artist', 'Artist'], ['both', 'Track · Artist'], ['none', '']]) {
+    action.textFields = fields;
+    assert.equal(tileVisual(key, state).label, expected);
+    action.content = 'album-cover';
+    assert.equal(tileVisual(key, state).label, expected);
+    action.content = 'track-info';
+  }
+  action.textFields = 'both'; action.scrollText = true;
+  assert.equal(tileVisual(key, state, 42).scrollFrame, 42);
+  assert.equal(tileVisual(key, state, 42).scrollSpeed, 'normal');
+  action.scrollSpeed = 'fast';
+  assert.equal(tileVisual(key, state, 42).scrollSpeed, 'fast');
+  state.players[0].title = '';
+  assert.equal(tileVisual(key, state).label, 'Artist');
+});
 test('Windows and macOS metadata adapters drive the same Tile without Linux commands', async () => {
   const image = 'data:image/png;base64,' + (await sharp({ create: { width: 2, height: 2, channels: 3, background: '#123456' } }).png().toBuffer()).toString('base64');
   for (const platform of ['win32', 'darwin']) {

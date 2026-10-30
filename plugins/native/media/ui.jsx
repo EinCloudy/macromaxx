@@ -19,8 +19,9 @@ export function TileEditor({ action, update, status }) {
   return <>
     <Select label="Tile content" value={action.content || 'album-cover'} options={[["album-cover", 'Album cover'], ["track-info", 'Track information']]} onChange={content => update({ content })} />
     {(features.players || selected !== 'auto') && <Select label="Media player" value={selected} options={[["auto", 'Automatic (prefer playing)'], ...players.map(p => [p.id, `${p.id} · ${p.status}`]), ...(selected !== 'auto' && !players.some(p => p.id === selected) ? [[selected, `${selected} · Not available`]] : [])]} onChange={player => update({ player })} />}
-    {action.content !== 'track-info' && <label className="checkbox-label"><input type="checkbox" checked={!!action.showTitle} onChange={e => update({ showTitle: e.target.checked })} />Show track title over cover</label>}
-    {(action.content === 'track-info' || action.showTitle) && <label className="checkbox-label"><input type="checkbox" checked={!!action.showArtist} onChange={e => update({ showArtist: e.target.checked })} />Include artist</label>}
+    <Select label="Text to display" value={action.textFields || (action.content === 'track-info' || action.showTitle ? (action.showArtist ? 'both' : 'title') : 'none')} options={[["none", 'No text'], ["title", 'Title only'], ["artist", 'Artist only'], ["both", 'Title and artist']]} onChange={textFields => update({ textFields })} />
+    <label className="checkbox-label"><input type="checkbox" checked={!!action.scrollText} onChange={e => update({ scrollText: e.target.checked })} />Scroll text when too long</label>
+    {action.scrollText && <Select label="Scroll speed" value={action.scrollSpeed || 'normal'} options={[["slow", 'Slow'], ["normal", 'Normal'], ["fast", 'Fast']]} onChange={scrollSpeed => update({ scrollSpeed })} />}
     <p className="muted-text">Display-only Tile for Windows, macOS and Linux. Your player must share media information with the operating system. macOS exposes the current player only. Without artwork, your configured key appearance is used.</p>
   </>;
 }

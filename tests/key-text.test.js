@@ -1,7 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initialState, makeKey, validateState, duplicateKey } from '../shared/model.js';
-import { keyFontSize, keyTextLayout, globalFontSize, resolvedKeyFont, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../shared/key-text.js';
+import { keyFontSize, keyTextLayout, scrollingKeyText, globalFontSize, resolvedKeyFont, DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from '../shared/key-text.js';
+
+test('scrolling text only moves when it exceeds the available width', () => {
+  const measure = text => text.length * 10;
+  assert.equal(scrollingKeyText('short', 3, measure), null);
+  assert.equal(scrollingKeyText('a long track title', undefined, measure), null);
+  assert.equal(scrollingKeyText('a long track title', 10, measure).offset, 8);
+  assert.equal(scrollingKeyText('a long track title', 10, measure, 'slow').offset, 4);
+  assert.equal(scrollingKeyText('a long track title', 10, measure, 'fast').offset, 16);
+  assert.equal(scrollingKeyText('a long track title', 280, measure).offset, 4);
+});
 import { visualSignature, collectVisuals } from '../shared/visuals.js';
 
 test('Legacy labels retain size 16; custom sizes survive duplication and workspace round trips', () => {

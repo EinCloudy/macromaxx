@@ -8,6 +8,11 @@ export async function create(ctx) {
   const execute = ctx.runCommand || run;
   const linux = ctx.platform === 'linux';
   const media = new Media(ctx.changed, execute, undefined, ctx.platform);
+  let scrollFrame = 0, scrollTimer;
+  const hasScrollingTile = () => {
+    const visit = keys => (keys || []).some(key => key && (key.actions?.some(action => action.type === 'tile' && action.scrollText && selectPlayer(media.state, action.player)) || visit(key.children)));
+    return ctx.getState?.()?.profiles?.some(profile => visit(profile.keys));
+  };
   let systemAvailable = ctx.platform === 'win32' ? !!ctx.service('input')?.integrationAvailable : false;
   const refresh = async () => {
     await media.refresh();
@@ -47,8 +52,8 @@ export async function create(ctx) {
     }, tile: async () => { /* A Tile is display-only; pressing it never changes playback. */ } },
     operations: { refresh },
     status: () => ({ media: media.state }),
-    visual: key => tileVisual(key, media.state) || mediaVisual(key, media.state),
-    start: () => media.start(), resume: refresh, close: () => media.close(),
+    visual: key => tileVisual(key, media.state, scrollFrame) || mediaVisual(key, media.state),
+    start: () => { media.start(); if (!scrollTimer) scrollTimer = setInterval(() => { if (hasScrollingTile()) { scrollFrame++; ctx.changed(); } }, 50); }, resume: refresh, close: () => { clearInterval(scrollTimer); media.close(); },
   };
 }
 export function mediaVisual(key, state) {
@@ -56,10 +61,12 @@ export function mediaVisual(key, state) {
   const player = selectPlayer(state, action.player);
   return { ...(['playpause', 'play', 'pause'].includes(action.command) && player ? { active: player.status === 'Playing' } : {}), ...(action.showTitle && player?.title ? { label: `${player.title}${action.showArtist && player.artist ? ' · ' + player.artist : ''}`.slice(0, 80) } : {}) };
 }
-export function tileVisual(key, state) {
+export function tileVisual(key, state, scrollFrame = 0) {
   const action = key.actions?.find(a => a.type === 'tile'); if (!action) return null;
   const player = selectPlayer(state, action.player); if (!player) return null;
   const textOnly = action.content === 'track-info';
-  const label = `${player.title || ''}${action.showArtist && player.artist ? ' · ' + player.artist : ''}`.slice(0, 80);
-  return { active: false, ...(textOnly ? { image: '', label } : { ...(player.cover ? { image: player.cover, label: '' } : {}), ...(action.showTitle && label ? { label } : {}) }) };
+  const fields = action.textFields || (textOnly || action.showTitle ? (action.showArtist ? 'both' : 'title') : 'none');
+  const label = [fields === 'title' || fields === 'both' ? player.title : '', fields === 'artist' || fields === 'both' ? player.artist : ''].filter(Boolean).join(' · ');
+  const text = label && action.scrollText ? { scrollFrame, scrollSpeed: ['slow', 'fast'].includes(action.scrollSpeed) ? action.scrollSpeed : 'normal' } : {};
+  return { active: false, ...(textOnly ? { image: '', label, ...text } : { ...(player.cover ? { image: player.cover, label: '' } : {}), ...(label ? { label, ...text } : {}) }) };
 }

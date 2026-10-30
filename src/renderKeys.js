@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Icon } from './icons.jsx';
 import { visualSignature } from '../shared/visuals.js';
-import { keyFontSize, keyTextLayout } from '../shared/key-text.js';
+import { keyFontSize, keyTextLayout, scrollingKeyText } from '../shared/key-text.js';
 const cache = new Map();
 async function image(src) {
   return new Promise((resolve, reject) => {
@@ -33,7 +33,8 @@ async function drawKey(key, active) {
   if (key) {
     const fontSize = keyFontSize(key);
     ctx.font = `500 ${fontSize}px sans-serif`;
-    const layout = keyTextLayout(key.label, fontSize, (text) => ctx.measureText(text).width);
+    const scroll = scrollingKeyText(key.label, key.scrollFrame, (text) => ctx.measureText(text).width, key.scrollSpeed);
+    const layout = keyTextLayout(scroll ? 'X' : key.label, fontSize, (text) => ctx.measureText(text).width);
     if (key.image) ctx.drawImage(await image(key.image), 0, 0, 144, 144);
     else {
       const svg = renderToStaticMarkup(
@@ -59,7 +60,15 @@ async function drawKey(key, active) {
       ctx.fillRect(0, layout.textTop - 4, 144, 148 - layout.textTop);
       ctx.fillStyle = '#fff';
     }
-    layout.lines.forEach((line, i) =>
+    if (scroll) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(8, layout.textTop, 128, layout.lineHeight); ctx.clip();
+      ctx.textAlign = 'left';
+      const x = 8 - scroll.offset, y = layout.textTop + layout.lineHeight / 2;
+      ctx.fillText(scroll.text, x, y);
+      ctx.fillText(scroll.text, x + scroll.width + scroll.gap, y);
+      ctx.restore();
+    } else layout.lines.forEach((line, i) =>
       ctx.fillText(line, 72, layout.textTop + (i + 0.5) * layout.lineHeight),
     );
     if (active) {

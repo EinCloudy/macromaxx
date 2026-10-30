@@ -61,3 +61,13 @@ export function keyTextLayout(label, fontSize, measure) {
   const iconY = visible.length ? Math.max(8, (textTop - iconSize) / 2) : 46;
   return { lines: visible, fontSize, lineHeight, textTop, iconSize, iconY };
 }
+
+// A shared pixel offset keeps the editor and the rendered deck image in sync.
+export function scrollingKeyText(label, frame, measure, speed = 'normal') {
+  const text = String(label || '').replace(/\s+/g, ' ').trim();
+  const width = measure(text);
+  if (!Number.isSafeInteger(frame) || width <= 128) return null;
+  const gap = 40;
+  const step = speed === 'slow' ? 0.4 : speed === 'fast' ? 1.6 : 0.8;
+  return { text, width, offset: (frame * step) % (width + gap), gap };
+}
