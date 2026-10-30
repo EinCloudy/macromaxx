@@ -1,5 +1,6 @@
 import { DEFAULT_FONT_SIZE } from './key-text.js';
 import { catalog } from './action-catalog.js';
+import { DEFAULT_SCREENSAVER } from './screensaver.js';
 
 // Keep the public model entry point stable for Electron and existing consumers.
 export { catalog } from './action-catalog.js';
@@ -74,6 +75,7 @@ export function initialState() {
       folderAnimations: true,
       iconRevealAnimation: true,
       defaultFontSize: DEFAULT_FONT_SIZE,
+      screensaver: { ...DEFAULT_SCREENSAVER },
     },
   };
 }

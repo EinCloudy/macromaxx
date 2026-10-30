@@ -5,10 +5,12 @@ import { animationEnabled } from '../shared/animation-settings.js';
 import { playStartupWave } from './startup-wave.js';
 import { playIconTransition } from './icon-transitions.js';
 import { resolvedKeyFont } from '../shared/key-text.js';
+import { screensaverSettings, screensaverBudget } from '../shared/screensaver.js';
+import { ScreensaverRenderer } from './screensaver-renderer.js';
 
 export class Devices {
-  constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}), onDisconnect = () => {}, listDevices = listStreamDecks, openDevice = openStreamDeck }) {
-    Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive, getSettings, onDisconnect, listDevices, openDevice });
+  constructor({ onStatus, onDown, onUp, getKeys, getBrightness, isActive = () => false, getSettings = () => ({}), getIdleSeconds = () => Infinity, onDisconnect = () => {}, listDevices = listStreamDecks, openDevice = openStreamDeck }) {
+    Object.assign(this, { onStatus, onDown, onUp, getKeys, getBrightness, isActive, getSettings, getIdleSeconds, onDisconnect, listDevices, openDevice });
     this.info = { connected: false, name: 'Virtual Stream Deck', rows: 3, columns: 5, count: 15, error: '' };
     this.cache = new Map();
     this.sent = new Map();
@@ -20,9 +22,135 @@ export class Devices {
     this.renderRevision = 0;
     this.startupPlayed = false;
     this.pendingTransition = null;
+    this.lastActivity = Date.now();
+    this.heldButtons = new Set();
+    this.wakeButtons = new Set();
+    this.screensaverColors = new Map();
   }
 
-  start() { this.scan(); this.timer = setInterval(() => this.scan(), 3000); }
+  start() {
+    this.scan(); this.timer = setInterval(() => this.scan(), 3000);
+    const tick = async () => {
+      try { await this.tickScreensaver(); } catch (error) {
+        this.lastActivity = Date.now(); this.stopScreensaver();
+        this.info.error = `Screensaver: ${error.message}`; this.onStatus();
+      }
+      // No overlapping frame jobs; inactive/disabled screensavers need only
+      // a slow idle check. While playing, keep wake detection responsive.
+      if (!this.stopping) {
+        const budget = screensaverBudget(this.getSettings(), this.controls?.length);
+        const delay = this.info.screensaver
+          ? Math.max(16, Math.min(100, 1000 / budget.fps - (Date.now() - this.screensaverLastFrame)))
+          : 1000;
+        this.screensaverTimer = setTimeout(tick, delay);
+      }
+    };
+    this.screensaverTimer = setTimeout(tick, 1000);
+  }
+
+  buttonDown(index) {
+    this.lastActivity = Date.now();
+    this.heldButtons.add(index);
+    if (this.info.screensaver || this.wakeButtons.size) {
+      this.wakeButtons.add(index); this.stopScreensaver(); return;
+    }
+    this.skipStartupAnimation(); this.skipTransition(); this.onDown(index);
+  }
+
+  buttonUp(index) {
+    this.lastActivity = Date.now(); this.heldButtons.delete(index);
+    if (this.wakeButtons.delete(index)) return;
+    this.onUp(index);
+  }
+
+  stopScreensaver() {
+    if (!this.info.screensaver) return;
+    this.screensaverController?.abort();
+    this.info.screensaver = null; ++this.renderRevision;
+    this.screensaverRenderer = null;
+    this.screensaverColors.clear();
+    this.sent.clear(); this.onStatus();
+    if (!this.stopping && !this.suspended && this.deck) {
+      this.pendingTransition = { kind: 'screensaver' };
+      void this.render();
+    }
+  }
+
+  async tickScreensaver(now = Date.now()) {
+    if (this.stopping || this.suspended || !this.deck) return;
+    if (!this.info.screensaver && this.getSettings().screensaver?.enabled !== true) return;
+    const settings = screensaverSettings(this.getSettings());
+    const idle = Math.min((now - this.lastActivity) / 1000, this.getIdleSeconds());
+    if (!settings.enabled || idle < settings.timeout || this.heldButtons.size) {
+      this.stopScreensaver(); return;
+    }
+    if (this.info.animating || this.info.transitioning || this.screensaverBusy) return;
+    const entering = !this.info.screensaver;
+    const budget = screensaverBudget(this.getSettings(), this.controls.length);
+    if (!entering && settings.effect === this.info.screensaver && now - this.screensaverLastFrame < 1000 / budget.fps) return;
+    this.screensaverLastFrame = now;
+    if (entering) {
+      this.info.screensaver = settings.effect; this.screensaverStarted = now;
+      this.pendingTransition = null; ++this.renderRevision; this.onStatus();
+    }
+    this.info.screensaver = settings.effect;
+    const deck = this.deck, revision = this.renderRevision;
+    const current = () => this.deck === deck && this.info.screensaver && revision === this.renderRevision && !this.stopping && !this.suspended;
+    this.screensaverBusy = true;
+    try {
+      this.renderQueue = this.renderQueue.catch(() => {}).then(async () => {
+        if (!current()) return;
+        const brightness = this.getBrightness();
+        if (entering || this.screensaverBrightness !== brightness) {
+          await deck.setBrightness(brightness);
+          this.screensaverBrightness = brightness;
+        }
+        if (!current()) return;
+        if (!this.screensaverRenderer || this.screensaverRenderer.tile !== budget.tile) {
+          this.screensaverRenderer = new ScreensaverRenderer(this.info.columns, this.info.rows, budget.tile, this.controls);
+        }
+        const renderer = this.screensaverRenderer;
+        renderer.draw(settings.effect, (now - this.screensaverStarted) / 1000);
+        const targets = [];
+        for (const control of this.controls) {
+          if (!current()) return;
+          if (control.feedbackType === 'lcd') {
+            const source = this.displayed.get(control.index);
+            const buffer = renderer.buffer(control, source);
+            if (entering) targets.push({ control, buffer });
+            else {
+              if (source?.equals(buffer)) continue;
+              await deck.fillKeyBuffer(control.index, buffer, { format: 'rgb' });
+              if (this.deck === deck) this.displayed.set(control.index, buffer);
+            }
+          } else if (control.feedbackType === 'rgb') {
+            const color = renderer.color(control);
+            const signature = color.join(',');
+            if (this.screensaverColors.get(control.index) === signature) continue;
+            await deck.fillKeyColor(control.index, ...color);
+            this.screensaverColors.set(control.index, signature);
+          }
+        }
+        if (entering && current() && targets.length) {
+          const controller = new AbortController();
+          this.screensaverController = controller;
+          try {
+            await playIconTransition(deck, targets, this.displayed, {
+              kind: 'screensaver', signal: controller.signal, cache: new Map(),
+              onFrame: (index, buffer) => {
+                if (this.deck === deck) this.displayed.set(index, buffer);
+              },
+            });
+          } catch (error) {
+            if (!controller.signal.aborted) throw error;
+          } finally {
+            if (this.screensaverController === controller) this.screensaverController = null;
+          }
+        }
+      });
+      await this.renderQueue;
+    } finally { this.screensaverBusy = false; }
+  }
 
   scan() {
     if (this.stopping || this.suspended) return Promise.resolve();
@@ -55,11 +183,12 @@ export class Devices {
           columns: Math.max(...controls.map(c => c.column)) + 1, error: '',
         };
         this.deck.on('down', c => {
-          if (!this.stopping && c.type === 'button') { this.skipStartupAnimation(); this.skipTransition(); this.onDown(c.index); }
+          if (!this.stopping && c.type === 'button') this.buttonDown(c.index);
         });
-        this.deck.on('up', c => { if (!this.stopping && c.type === 'button') this.onUp(c.index); });
+        this.deck.on('up', c => { if (!this.stopping && c.type === 'button') this.buttonUp(c.index); });
         this.deck.on('error', error => { this.info.error = error.message; this.disconnect().catch(() => {}); });
         this.sent.clear();
+        this.lastActivity = Date.now();
         await this.startupAnimation();
       } else if (!devices.length && this.info.error) { this.info.error = ''; this.onStatus(); }
     } catch (error) {
@@ -83,6 +212,9 @@ export class Devices {
   async reconnect() { await this.suspend(); await this.resume(); }
 
   async disconnect() {
+    this.stopScreensaver();
+    this.heldButtons.clear(); this.wakeButtons.clear();
+    this.lastActivity = Date.now();
     this.skipStartupAnimation();
     this.transitionController?.abort();
     this.shutdownController?.abort();
@@ -160,6 +292,7 @@ export class Devices {
   }
 
   render() {
+    if (this.info.screensaver) return this.renderQueue;
     const revision = ++this.renderRevision;
     this.transitionController?.abort();
     this.renderQueue = this.renderQueue.catch(() => {}).then(async () => {
@@ -197,7 +330,7 @@ export class Devices {
           this.onStatus();
           try {
             await playIconTransition(deck, targets, this.displayed, {
-              ...transition, signal: controller.signal, cache: this.transitionCache,
+              ...transition, signal: controller.signal, cache: transition.kind === 'screensaver' ? new Map() : this.transitionCache,
               onFrame: (index, buffer) => {
                 if (this.deck === deck) { this.displayed.set(index, buffer); this.sent.delete(index); }
               },
@@ -245,6 +378,8 @@ export class Devices {
 
   async closeDevice() {
     this.stopping = true;
+    this.stopScreensaver();
+    clearTimeout(this.screensaverTimer);
     this.skipStartupAnimation();
     this.transitionController?.abort();
     this.pendingTransition = null;

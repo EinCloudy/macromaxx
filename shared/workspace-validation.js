@@ -1,5 +1,6 @@
 import { MIN_FONT_SIZE, MAX_FONT_SIZE } from './key-text.js';
 import { catalog } from './action-catalog.js';
+import { SCREENSAVERS, SCREENSAVER_GRAPHICS_PRESETS } from './screensaver.js';
 
 const actionTypes = new Set(catalog.map((action) => action.type));
 const hexColor = /^#[0-9a-f]{6}$/i;
@@ -43,6 +44,21 @@ function validateKey(key) {
 }
 
 function validateSettings(settings) {
+  if (settings?.screensaver !== undefined) {
+    const saver = settings.screensaver;
+    if (
+      !saver ||
+      typeof saver.enabled !== 'boolean' ||
+      !SCREENSAVERS.some(({ id }) => id === saver.effect) ||
+      (saver.performance !== undefined &&
+        saver.performance !== 'smooth' &&
+        !SCREENSAVER_GRAPHICS_PRESETS.some(({ id }) => id === saver.performance)) ||
+      !Number.isInteger(saver.timeout) ||
+      saver.timeout < 10 ||
+      saver.timeout > 86400
+    )
+      throw new Error('Invalid screensaver settings.');
+  }
   if (
     !settings ||
     !Number.isFinite(settings.brightness) ||

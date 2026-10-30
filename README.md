@@ -64,6 +64,25 @@ Under **Settings → Deck animations**, disable these optional effects independe
 
 Both default to enabled, including for existing workspaces. Their settings are saved and exported. Key presses skip the startup wave and optional effects. Fast navigation cancels the previous transition and displays the latest destination. With optional effects disabled, cached icons appear directly.
 
+### Screensaver
+
+Under **Settings → Screensaver**, enable an idle animation and set a delay from 10 seconds to 24 hours (default: 5 minutes). Choose from twelve effects: **Matrix rain**, **Neon snake**, **Star flight**, **Plasma waves**, **Bouncing ball**, **Northern lights**, **Fireflies**, **Radar sweep**, **Neon rain**, **Water ripples**, **Orbital trails**, and **Underwater**, with a live preview. Underwater includes moving fish, bubbles, light shafts, and swaying kelp. Scenes span the connected deck's layout and keep running in tray mode. The screensaver is disabled by default and its settings are included in workspace exports.
+
+Choose a **Graphics preset** to control scene detail and animation speed. **Eco** stays the default, including for existing workspaces; old **Smooth** settings map to **Balanced** without changing their rendering budget.
+
+| Preset | Internal pixels per key | Max FPS | Deck-wide key updates/second |
+| --- | --- | --- | --- |
+| Eco | 24×24 | 5 | 100 |
+| Balanced | 40×40 | 10 | 200 |
+| High | 56×56 | 15 | 300 |
+| Ultra | 72×72 | 20 | 400 |
+
+All presets scale to the LCD's native dimensions. Large decks reduce their frame rate to stay within the update budget (e.g. about 3 FPS for Eco on a 32-key XL). The settings show the selected resolution and the current layout's maximum FPS; the preview uses the same preset. Actual frame rate depends on system load and USB speed. Reusable scene/output buffers, lightweight scaling without image codecs, unchanged-tile suppression, and serialized frame jobs reduce CPU, allocations and USB traffic. Brightness is only resent when needed. Hidden/offscreen previews pause; inactive screensavers only check idle state once per second. The two short transitions use their own higher frame cadence.
+
+Run `node scripts/benchmark-screensavers.js` for a repeatable CPU-only rendering/scaling benchmark on simulated 15-key and 32-key layouts. Pass `balanced`, `high`, or `ultra` as an argument to test another preset. It excludes USB transport, image encoding and the Electron UI; real hardware performance depends on the deck and system.
+
+Computer mouse/keyboard activity or deck input resets the idle timer. The first deck press only wakes the display, without triggering its action; subsequent presses work normally. Held deck keys prevent activation. A short crossfade blends the key artwork into the screensaver and back to the latest profile artwork when waking. Waking during the entry animation smoothly returns from the currently visible frame.
+
 ## Actions
 
 ### Soundboard and virtual microphone

@@ -128,6 +128,7 @@ else {
     autoProfiles = new AutoProfiles(() => state, id => navigate({ profileId: id, automatic: true }), e => log('error', 'Automatic profile', e.message));
     plugins = new Plugins([path.join(app.getAppPath(), 'plugins'), path.join(app.getPath('userData'), 'plugins')]); await plugins.scan();
     devices = new Devices({ onStatus: status, onDisconnect: releasePhysicalKeys, getKeys: () => deckSlots(state, folderPath, devices?.info.count || 15).map(slot => native.renderKey(slot.key)), getBrightness: () => state.settings.brightness, isActive: key => native.visual(key)?.active ?? isKeyActive(key, native.snapshot().obs), getSettings: () => state.settings,
+      getIdleSeconds: () => powerMonitor.getSystemIdleTime(),
       onDown: index => {
         if (quitting) return;
         if (pressed.has(index)) return;

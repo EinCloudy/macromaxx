@@ -5,6 +5,7 @@ import { Button, Switch } from '../../components/ui.jsx';
 import { BuiltInSettings } from '../../../plugins/native/ui.jsx';
 import { AutoProfileSettings } from './auto-profile-settings.jsx';
 import { AnimationSettings, TypographySettings } from './appearance-settings.jsx';
+import { ScreensaverSettings } from './screensaver-settings.jsx';
 
 export function Settings({ state, status, change, perform, flush }) {
   const [busy, setBusy] = useState('');
@@ -27,6 +28,7 @@ export function Settings({ state, status, change, perform, flush }) {
       </section>
       <div className="settings-grid">
         <AnimationSettings state={state} change={change} />
+        <ScreensaverSettings state={state} status={status} change={change} />
         <TypographySettings state={state} change={change} />
         <BuiltInSettings
           state={state}
