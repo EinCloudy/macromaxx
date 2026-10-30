@@ -64,7 +64,9 @@ export function keyTextLayout(label, fontSize, measure) {
 
 // A shared pixel offset keeps the editor and the rendered deck image in sync.
 export function scrollingKeyText(label, frame, measure, speed = 'normal') {
-  const text = String(label || '').replace(/\s+/g, ' ').trim();
+  const text = String(label || '')
+    .replace(/\s+/g, ' ')
+    .trim();
   const width = measure(text);
   if (!Number.isSafeInteger(frame) || width <= 128) return null;
   const gap = 40;

@@ -1,6 +1,12 @@
 import React from 'react';
 import { Icon } from './icons.jsx';
-import { keyFontSize, keyTextLayout, scrollingKeyText, stackedKeyText, DEFAULT_FONT_SIZE } from '../shared/key-text.js';
+import {
+  keyFontSize,
+  keyTextLayout,
+  scrollingKeyText,
+  stackedKeyText,
+  DEFAULT_FONT_SIZE,
+} from '../shared/key-text.js';
 
 let context;
 export function KeyArtwork({ keyData, active = false, defaultFontSize = DEFAULT_FONT_SIZE }) {
@@ -9,7 +15,9 @@ export function KeyArtwork({ keyData, active = false, defaultFontSize = DEFAULT_
   context.font = `500 ${fontSize}px sans-serif`;
   const measure = (text) => context.measureText(text).width;
   const stacked = stackedKeyText(keyData, fontSize, measure);
-  const scroll = stacked ? null : scrollingKeyText(keyData.label, keyData.scrollFrame, measure, keyData.scrollSpeed);
+  const scroll = stacked
+    ? null
+    : scrollingKeyText(keyData.label, keyData.scrollFrame, measure, keyData.scrollSpeed);
   const layout = stacked || keyTextLayout(scroll ? 'X' : keyData.label, fontSize, measure);
   const percent = (value) => `${(value / 144) * 100}%`;
   const units = (value) => `${(value / 144) * 100}cqw`;
@@ -83,7 +91,53 @@ export function KeyArtwork({ keyData, active = false, defaultFontSize = DEFAULT_
           overflow: 'hidden',
         }}
       >
-        {stacked ? stacked.lines.map((line, i) => <span key={i} style={{ display: 'block', margin: `0 ${percent(8)}`, overflow: 'hidden' }}>{line.scroll ? <span style={{ display: 'block', position: 'relative', textAlign: 'left', transform: `translateX(${units(-line.scroll.offset)})` }}>{line.text}<span style={{ position: 'absolute', left: units(line.scroll.width + line.scroll.gap) }}>{line.text}</span></span> : line.text}</span>) : scroll ? <span style={{ display: 'block', position: 'relative', textAlign: 'left', transform: `translateX(${units(-scroll.offset)})` }}>{scroll.text}<span style={{ position: 'absolute', left: units(scroll.width + scroll.gap) }}>{scroll.text}</span></span> : layout.lines.join('\n')}
+        {stacked ? (
+          stacked.lines.map((line, i) => (
+            <span
+              key={i}
+              style={{ display: 'block', margin: `0 ${percent(8)}`, overflow: 'hidden' }}
+            >
+              {line.scroll ? (
+                <span
+                  style={{
+                    display: 'block',
+                    position: 'relative',
+                    textAlign: 'left',
+                    transform: `translateX(${units(-line.scroll.offset)})`,
+                  }}
+                >
+                  {line.text}
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: units(line.scroll.width + line.scroll.gap),
+                    }}
+                  >
+                    {line.text}
+                  </span>
+                </span>
+              ) : (
+                line.text
+              )}
+            </span>
+          ))
+        ) : scroll ? (
+          <span
+            style={{
+              display: 'block',
+              position: 'relative',
+              textAlign: 'left',
+              transform: `translateX(${units(-scroll.offset)})`,
+            }}
+          >
+            {scroll.text}
+            <span style={{ position: 'absolute', left: units(scroll.width + scroll.gap) }}>
+              {scroll.text}
+            </span>
+          </span>
+        ) : (
+          layout.lines.join('\n')
+        )}
       </span>
     </div>
   );

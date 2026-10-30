@@ -2,7 +2,12 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Icon } from './icons.jsx';
 import { visualSignature } from '../shared/visuals.js';
-import { keyFontSize, keyTextLayout, scrollingKeyText, stackedKeyText } from '../shared/key-text.js';
+import {
+  keyFontSize,
+  keyTextLayout,
+  scrollingKeyText,
+  stackedKeyText,
+} from '../shared/key-text.js';
 const cache = new Map();
 async function image(src) {
   return new Promise((resolve, reject) => {
@@ -35,7 +40,9 @@ async function drawKey(key, active) {
     ctx.font = `500 ${fontSize}px sans-serif`;
     const measure = (text) => ctx.measureText(text).width;
     const stacked = stackedKeyText(key, fontSize, measure);
-    const scroll = stacked ? null : scrollingKeyText(key.label, key.scrollFrame, measure, key.scrollSpeed);
+    const scroll = stacked
+      ? null
+      : scrollingKeyText(key.label, key.scrollFrame, measure, key.scrollSpeed);
     const layout = stacked || keyTextLayout(scroll ? 'X' : key.label, fontSize, measure);
     if (key.image) ctx.drawImage(await image(key.image), 0, 0, 144, 144);
     else {
@@ -65,8 +72,15 @@ async function drawKey(key, active) {
     if (stacked) {
       stacked.lines.forEach((line, i) => {
         const y = layout.textTop + (i + 0.5) * layout.lineHeight;
-        if (!line.scroll) { ctx.fillText(line.text, 72, y); return; }
-        ctx.save(); ctx.beginPath(); ctx.rect(8, layout.textTop + i * layout.lineHeight, 128, layout.lineHeight); ctx.clip(); ctx.textAlign = 'left';
+        if (!line.scroll) {
+          ctx.fillText(line.text, 72, y);
+          return;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(8, layout.textTop + i * layout.lineHeight, 128, layout.lineHeight);
+        ctx.clip();
+        ctx.textAlign = 'left';
         const x = 8 - line.scroll.offset;
         ctx.fillText(line.text, x, y);
         ctx.fillText(line.text, x + line.scroll.width + line.scroll.gap, y);
@@ -74,15 +88,19 @@ async function drawKey(key, active) {
       });
     } else if (scroll) {
       ctx.save();
-      ctx.beginPath(); ctx.rect(8, layout.textTop, 128, layout.lineHeight); ctx.clip();
+      ctx.beginPath();
+      ctx.rect(8, layout.textTop, 128, layout.lineHeight);
+      ctx.clip();
       ctx.textAlign = 'left';
-      const x = 8 - scroll.offset, y = layout.textTop + layout.lineHeight / 2;
+      const x = 8 - scroll.offset,
+        y = layout.textTop + layout.lineHeight / 2;
       ctx.fillText(scroll.text, x, y);
       ctx.fillText(scroll.text, x + scroll.width + scroll.gap, y);
       ctx.restore();
-    } else layout.lines.forEach((line, i) =>
-      ctx.fillText(line, 72, layout.textTop + (i + 0.5) * layout.lineHeight),
-    );
+    } else
+      layout.lines.forEach((line, i) =>
+        ctx.fillText(line, 72, layout.textTop + (i + 0.5) * layout.lineHeight),
+      );
     if (active) {
       ctx.fillStyle = '#86efac';
       ctx.beginPath();

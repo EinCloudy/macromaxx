@@ -29,7 +29,9 @@ export function liveKey(key, live = {}) {
         ...(typeof patch.label === 'string' ? { label: patch.label.slice(0, 1000) } : {}),
         ...(typeof patch.image === 'string' ? { image: patch.image } : {}),
         ...(Number.isSafeInteger(patch.scrollFrame) ? { scrollFrame: patch.scrollFrame } : {}),
-        ...(['slow', 'normal', 'fast'].includes(patch.scrollSpeed) ? { scrollSpeed: patch.scrollSpeed } : {}),
+        ...(['slow', 'normal', 'fast'].includes(patch.scrollSpeed)
+          ? { scrollSpeed: patch.scrollSpeed }
+          : {}),
         ...(patch.textLayout === 'stacked' ? { textLayout: 'stacked' } : {}),
       }
     : key;
