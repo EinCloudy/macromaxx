@@ -83,7 +83,7 @@ export function ScreensaverSettings({ state, status, change }) {
         </span>
         <div>
           <h3>Screensaver</h3>
-          <p>Animated scenes across your Stream Deck.</p>
+          <p>Show an animation when the deck is idle.</p>
         </div>
       </div>
       <canvas
@@ -97,7 +97,7 @@ export function ScreensaverSettings({ state, status, change }) {
       <div className="setting-line">
         <div>
           <strong>Enable screensaver</strong>
-          <small>Start automatically when you are away.</small>
+          <small>Start after the idle time below.</small>
         </div>
         <Switch
           label="Enable screensaver"
@@ -124,13 +124,11 @@ export function ScreensaverSettings({ state, status, change }) {
       </div>
       <p className="muted-text">
         {budget.tile} × {budget.tile} scene pixels per key · up to {Number(budget.fps.toFixed(1))}{' '}
-        FPS on this layout. Larger decks adapt automatically. Actual frame rate depends on USB speed
-        and system load. The preview uses the selected quality.
+        FPS on this layout. Actual frame rate depends on USB speed and system load.
       </p>
       <div className="setting-line">
         <div>
           <strong>Effect</strong>
-          <small>Preview updates immediately.</small>
         </div>
         <select
           aria-label="Screensaver effect"
@@ -170,8 +168,8 @@ export function ScreensaverSettings({ state, status, change }) {
         />
       </div>
       <p className="muted-text">
-        The first deck press only wakes the keys; it does not run an action. Mouse or keyboard
-        activity also restores your keys. Runs even with the app in the tray.
+        The first deck press wakes the display without running an action. Mouse or keyboard activity
+        also wakes it. The screensaver runs while the app is in the tray.
       </p>
     </section>
   );

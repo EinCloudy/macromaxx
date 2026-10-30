@@ -123,12 +123,11 @@ export function Settings({ state, status, change, perform, flush, completeCreden
             </select>
           </div>
           <div className="section-divider" />
-          <h4>Transfer your workspace</h4>
+          <h4>Import and export</h4>
           <p className="muted-text">
-            Back up or restore profiles, key images, and settings as JSON. Importing replaces the
-            current workspace. Export lets you choose whether to include credentials. Choose without
-            credentials for sharing; files with credentials contain passwords and tokens as plain
-            text and must be kept private.
+            Export profiles, key images, and settings as JSON. Importing replaces the current
+            workspace. Exports with credentials contain passwords and tokens in plain text; keep
+            them private. Choose without credentials when sharing.
           </p>
           {missingWorkspaceCredentials(state).length > 0 && (
             <Button onClick={completeCredentials}>Complete missing credentials</Button>

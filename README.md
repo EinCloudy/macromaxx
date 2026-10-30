@@ -43,19 +43,19 @@ For development boundaries, folder responsibilities and checks, see [Code struct
 ## Using the app
 
 1. Drag an action from the library on the right onto a key, or select an empty key and choose an action.
-2. Open **Properties** to customize the label, font size, icon, color, image, and action parameters. Set a key's font size from 10 to 32 using the slider or number field, with live preview and hardware updates. Change the global default under **Settings → Text & labels** (factory default: 16). New keys and existing keys without an individual size inherit this value, including keys in subfolders and the Back key. Individual sizes are preserved. Choose **Default** in a key's properties to remove its override and restore inheritance. Long labels wrap onto up to two lines and are truncated with “…” when necessary. Global and individual settings are preserved when duplicating or importing/exporting.
+2. Open **Properties** to customize the label, font size, icon, color, image, and action parameters. Keys inherit the font size from **Settings → Text & labels** unless overridden in Properties. Labels wrap onto up to two lines and are truncated when necessary.
 3. Click **Test** or press the physical key. Results appear under **Activity**.
 4. Add and reorder actions in Properties to build a chain. Trigger a running chain again to stop it. Use delays to coordinate applications and workflows.
 5. Assign a separate **Long press** action (at least 600 ms). Unassigned long presses use the short-press assignment. Actions run when the key is released.
 6. Open folders with a double-click or a physical key press. The Back key goes up one level and can be moved by drag and drop. Its position is saved per folder; dropping it onto an occupied key swaps the two slots. Folders default to the top-left Back position. Manage profiles on the left, or assign profile-switch actions to keys.
 
-Swap keys with drag and drop. Undo/redo using the toolbar or Ctrl+Z / Ctrl+Shift+Z. Use the three-dot menu to manage a profile. Changes save automatically; key images and brightness are sent to the device live. Your existing custom profile names, labels, text, and action content are preserved when updating the app's interface language.
+Swap keys with drag and drop. Undo or redo using the toolbar or Ctrl+Z / Ctrl+Shift+Z. Use the three-dot menu to manage a profile. Changes save automatically; key images and brightness are sent to the device live.
 
 ### Animations
 
-At startup, a short purple light wave expands from the center of the first connected deck. It adapts to the layout: the center key on a 15-key deck, or the four central keys symmetrically on an XL. The current assignment appears afterwards. A key press skips the startup animation. Folder changes and reconnections do not replay it.
+At startup, a light wave expands from the center of the first connected deck before showing its assignments. A key press skips the animation; folder changes and reconnections do not replay it.
 
-When quitting the app, the same wave runs in reverse, from the outside toward the center. The central keys and remaining background glow then fade completely to black in a short additional fade-out. The device is released without bringing back its logo. This applies to **Quit** in the tray, the quit button, and closing the window with tray mode disabled. Minimizing to the tray does not play the shutdown animation. Key actions stop during shutdown; repeated quit requests do not restart the wave. Startup and shutdown waves remain enabled independently of the optional effects.
+On quit, the wave runs in reverse and fades to black before the device is released. Minimizing to the tray does not play the shutdown animation. Startup and shutdown waves are independent of the optional effects below.
 
 Under **Settings → Deck animations**, disable these optional effects independently:
 
@@ -68,7 +68,7 @@ Both default to enabled, including for existing workspaces. Their settings are s
 
 Under **Settings → Screensaver**, enable an idle animation and set a delay from 10 seconds to 24 hours (default: 5 minutes). Choose from twelve effects: **Matrix rain**, **Neon snake**, **Star flight**, **Plasma waves**, **Bouncing ball**, **Northern lights**, **Fireflies**, **Radar sweep**, **Neon rain**, **Water ripples**, **Orbital trails**, and **Underwater**, with a live preview. Underwater includes moving fish, bubbles, light shafts, and swaying kelp. Scenes span the connected deck's layout and keep running in tray mode. The screensaver is disabled by default and its settings are included in workspace exports.
 
-Choose a **Graphics preset** to control scene detail and animation speed. **Eco** stays the default, including for existing workspaces; old **Smooth** settings map to **Balanced** without changing their rendering budget.
+Choose a **Graphics preset** to control scene detail and animation speed. **Eco** is the default; older **Smooth** settings map to **Balanced**.
 
 | Preset | Internal pixels per key | Max FPS | Deck-wide key updates/second |
 | --- | --- | --- | --- |
@@ -77,7 +77,7 @@ Choose a **Graphics preset** to control scene detail and animation speed. **Eco*
 | High | 56×56 | 15 | 300 |
 | Ultra | 72×72 | 20 | 400 |
 
-All presets scale to the LCD's native dimensions. Large decks reduce their frame rate to stay within the update budget (e.g. about 3 FPS for Eco on a 32-key XL). The settings show the selected resolution and the current layout's maximum FPS; the preview uses the same preset. Actual frame rate depends on system load and USB speed. Reusable scene/output buffers, lightweight scaling without image codecs, unchanged-tile suppression, and serialized frame jobs reduce CPU, allocations and USB traffic. Brightness is only resent when needed. Hidden/offscreen previews pause; inactive screensavers only check idle state once per second. The two short transitions use their own higher frame cadence.
+All presets scale to the LCD's native dimensions. Large decks reduce their frame rate to stay within the update budget (e.g. about 3 FPS for Eco on a 32-key XL). Settings show the resolution and the current layout's maximum FPS; actual frame rate depends on system load and USB speed.
 
 Run `node scripts/benchmark-screensavers.js` for a repeatable CPU-only rendering/scaling benchmark on simulated 15-key and 32-key layouts. Pass `balanced`, `high`, or `ultra` as an argument to test another preset. It excludes USB transport, image encoding and the Electron UI; real hardware performance depends on the deck and system.
 
@@ -109,9 +109,7 @@ For **Push-to-talk** or **Push-to-mute**, put the audio action first on the key.
 
 - **Hotkey:** record a combination or enter `CTRL+SHIFT+M`. Function keys, arrow keys, `META`, `SPACE`, `ENTER`, `PLUS`, `MINUS`, and others are supported. Separate hold/release actions are available on Linux and Windows. Held keys are released during normal shutdown and by **Stop all**.
 - **Website:** open an HTTP(S) or mailto URL in its default application.
-- **Open application:** choose an absolute application or file path. On Linux, executables launch directly, `.desktop` files use `gio launch`, and other files/directories open in their default application. `~` expands to your home directory.
 - **Type text:** copy text to the clipboard and paste it. This replaces the clipboard contents. When testing, add a delay first to give yourself time to focus the target application.
-- **Media controls:** play/pause, skip tracks, change volume, and mute. Linux uses `playerctl` for players, and `wpctl` or `pactl` for volume. Windows uses media keys. macOS volume uses AppleScript; global media play/pause keys are not implemented there yet.
 - **Webhook:** GET/POST/PUT/PATCH/DELETE/HEAD, JSON headers, and a custom body. JSON requests need a header such as `{"Content-Type":"application/json"}`. HTTP errors appear in Activity. Timeout: 15 seconds. Local endpoints are supported.
 - **OBS Studio:** switch scenes, toggle recording/streaming, and mute audio sources, with live key status. Requires OBS 28+ with its WebSocket server enabled (default port 4455). Connect in Settings.
 - **Plugin:** see the [plugin API and example](docs/PLUGINS.md).
@@ -153,11 +151,11 @@ Install `xdotool` for hotkeys. Wayland sessions use the portal so native Wayland
 
 ### Windows
 
-Keyboard input uses Windows `keybd_event` through a PowerShell helper. Elevated applications can block input from an app running with regular user permissions.
+Keyboard input uses RobotJS by default, with a PowerShell helper as a fallback. Elevated applications can block input from an app running with regular user permissions.
 
 ### macOS
 
-Grant Accessibility access to MacroMaxx or your development environment. Key combinations use System Events. Holding/releasing keys and some special keys are not supported there yet and report an error.
+Grant Accessibility access to MacroMaxx or your development environment. RobotJS provides keyboard input; the AppleScript fallback supports tap combinations only and may also require Automation permission.
 
 ## Data and export
 

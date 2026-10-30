@@ -1,7 +1,7 @@
 {
   "name": "macromaxx",
   "version": "0.1.0",
-  "description": "Your shortcuts. One beautiful deck.",
+  "description": "Stream Deck editor with profiles, actions, and plugins.",
   "desktopName": "macromaxx.desktop",
   "author": "MacroMaxx",
   "license": "MIT",

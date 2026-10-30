@@ -22,7 +22,7 @@ export function TypographySettings({ state, change }) {
         </span>
         <div>
           <h3>Text & labels</h3>
-          <p>Your default font size for the entire deck.</p>
+          <p>Default font size for key labels.</p>
         </div>
       </div>
       <div className="key-preview" style={{ background: preview.background }}>
@@ -43,9 +43,8 @@ export function TypographySettings({ state, change }) {
         }
       />
       <p className="muted-text">
-        New keys and existing keys without a custom size inherit this value automatically, including
-        keys in subfolders. Individual sizes are preserved. Choose Default in a key's properties to
-        restore the global size.
+        Keys without a custom size use this default, including keys in folders. To remove an
+        override, choose Default in the key's properties.
       </p>
     </section>
   );
@@ -90,7 +89,7 @@ export function AnimationSettings({ state, change }) {
       <div className="setting-line">
         <div>
           <strong>Reveal icons after startup</strong>
-          <small>Key assignments gently appear from the center after the startup wave.</small>
+          <small>Show keys from the center after the startup wave.</small>
         </div>
         <Switch
           label="Icon reveal animation"
@@ -102,10 +101,7 @@ export function AnimationSettings({ state, change }) {
           }
         />
       </div>
-      <p className="muted-text">
-        Disable either optional effect independently. Startup and shutdown waves stay on. A key
-        press skips the startup wave and optional effects.
-      </p>
+      <p className="muted-text">Press a key to skip the startup wave and optional effects.</p>
     </section>
   );
 }

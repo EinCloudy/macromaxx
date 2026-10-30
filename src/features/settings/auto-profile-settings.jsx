@@ -71,9 +71,9 @@ export function AutoProfileSettings({ state, status, change }) {
         </label>
       ))}
       <p className="muted-text">
-        Matches are case-insensitive; * and ? are wildcards. First matching profile wins. Manual
-        selection stays until focus changes, and MacroMaxx itself is ignored. Application IDs vary
-        by OS; rule data is preserved even without a compatible provider.
+        Patterns are case-insensitive and support * and ?. The first matching profile wins. Manual
+        selection lasts until focus changes; MacroMaxx itself is ignored. Application IDs vary by
+        OS.
       </p>
     </section>
   );
